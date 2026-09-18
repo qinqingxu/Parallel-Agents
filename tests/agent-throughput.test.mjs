@@ -19,6 +19,11 @@ const testDirectory = dirname(fileURLToPath(import.meta.url));
 const cli = resolve(testDirectory, '..', 'scripts', 'agent-throughput.mjs');
 const input = resolve(testDirectory, 'fixtures', 'agent-throughput-prs.json');
 const graphqlInput = resolve(testDirectory, 'fixtures', 'agent-throughput-graphql-prs.json');
+const graphqlMultiPageInput = resolve(
+  testDirectory,
+  'fixtures',
+  'agent-throughput-graphql-multipage-prs.json',
+);
 const generatedAt = '2026-09-18T00:00:00.000Z';
 
 async function fixture(t) {
@@ -76,6 +81,19 @@ test('GraphQL pull request metadata with mergedAt produces the expected aggregat
     dependency: 1,
     otherAutomation: 1,
   });
+});
+
+test('complete paginated GraphQL metadata is not marked truncated', async () => {
+  const payload = JSON.parse(await readFile(graphqlMultiPageInput, 'utf8'));
+  const parsed = parsePullRequestInput(payload);
+  const report = buildThroughputReport(parsed, {
+    generatedAt,
+    repository: 'qinqingxu/Parallel-Agents',
+    source: 'github-api',
+  });
+
+  assert.equal(parsed.truncated, false);
+  assert.doesNotMatch(report.limitations.join('\n'), /understates activity/);
 });
 
 test('live query projects only bounded aggregate metadata', () => {

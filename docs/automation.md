@@ -48,7 +48,7 @@ Tests and reproducible local inspection can inject a GitHub GraphQL JSON respons
 access:
 
 ```powershell
-node scripts/agent-throughput.mjs --repository owner/name --input tests/fixtures/agent-throughput-prs.json --now 2026-09-18T00:00:00.000Z
+node scripts/agent-throughput.mjs --repository owner/name --input tests/fixtures/agent-throughput-graphql-prs.json --now 2026-09-18T00:00:00.000Z
 ```
 
 Each report records `windowDays`, merged PR count, agent-authored merged count and share,

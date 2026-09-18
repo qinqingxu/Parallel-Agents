@@ -66,12 +66,10 @@ export function parsePullRequestInput(payload) {
   let items;
   let totalCount;
   let incomplete;
-  let hasNextPage = false;
   if (Array.isArray(payload) && payload.length > 0 && payload.every((page) => page?.data?.search)) {
     items = payload.flatMap((page) => page.data.search.nodes);
     totalCount = payload[0].data.search.issueCount;
     incomplete = false;
-    hasNextPage = payload.some((page) => page.data.search.pageInfo?.hasNextPage === true);
   } else if (
     Array.isArray(payload) &&
     payload.length > 0 &&
@@ -99,7 +97,7 @@ export function parsePullRequestInput(payload) {
   return {
     items,
     incomplete,
-    truncated: hasNextPage || (Number.isInteger(totalCount) && totalCount > items.length),
+    truncated: Number.isInteger(totalCount) && totalCount > items.length,
   };
 }
 

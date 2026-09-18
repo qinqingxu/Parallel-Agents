@@ -1,0 +1,30 @@
+[
+  {
+    "data": {
+      "search": {
+        "issueCount": 2,
+        "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" },
+        "nodes": [
+          {
+            "mergedAt": "2026-09-17T00:00:00.000Z",
+            "author": { "login": "copilot-swe-agent[bot]", "__typename": "Bot" }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "data": {
+      "search": {
+        "issueCount": 2,
+        "pageInfo": { "hasNextPage": false, "endCursor": null },
+        "nodes": [
+          {
+            "mergedAt": "2026-09-16T00:00:00.000Z",
+            "author": { "login": "octocat", "__typename": "User" }
+          }
+        ]
+      }
+    }
+  }
+]
