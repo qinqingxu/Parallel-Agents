@@ -58,9 +58,10 @@ all other identities are `otherAutomation`. The artifact contains aggregates onl
 serialize tokens, environment variables, PR/review bodies, commit text, or author logins.
 
 GitHub Search returns at most 1,000 results. The report is therefore bounded and explicitly records
-when the API total indicates truncation. Login-based classification can be imperfect, and PR counts
-do not measure effort, quality, unmerged work, or whether an agent had human assistance. Workflow
-configuration and a generated artifact also do not establish required-check enforcement.
+when the API total indicates truncation or GitHub marks a response incomplete. Login-based
+classification can be imperfect, and PR counts do not measure effort, quality, unmerged work, or
+whether an agent had human assistance. Workflow configuration and a generated artifact also do not
+establish required-check enforcement.
 
 CI requests an additional [source-bound evidence envelope](specs/evidence-v1.md) with
 `--with-provenance`. It requires an unchanged committed checkout and binds the outcome receipt

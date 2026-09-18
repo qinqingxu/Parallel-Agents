@@ -46,6 +46,7 @@ export function classifyAuthor(author) {
 export function parsePullRequestInput(payload) {
   let items;
   let totalCount;
+  let incomplete;
   if (
     Array.isArray(payload) &&
     payload.length > 0 &&
@@ -53,12 +54,15 @@ export function parsePullRequestInput(payload) {
   ) {
     items = payload.flatMap((page) => page.items);
     totalCount = payload[0].total_count;
+    incomplete = payload.some((page) => page.incomplete_results === true);
   } else if (Array.isArray(payload)) {
     items = payload;
     totalCount = payload.length;
+    incomplete = false;
   } else if (payload && Array.isArray(payload.items)) {
     items = payload.items;
     totalCount = payload.total_count;
+    incomplete = payload.incomplete_results === true;
   } else {
     throw new Error(
       'PR metadata must be a GitHub Search response, paginated responses, or an array.',
@@ -69,6 +73,7 @@ export function parsePullRequestInput(payload) {
   }
   return {
     items,
+    incomplete,
     truncated: Number.isInteger(totalCount) && totalCount > items.length,
   };
 }
@@ -104,9 +109,11 @@ export function buildThroughputReport(input, options) {
   const limitations = [
     'Author categories are inferred only from GitHub account type and a reviewed login-name policy; PR text, reviews, commits, and trailers are not inspected.',
     'The rolling window uses merged timestamps from GitHub repository metadata and does not measure effort, quality, or unmerged work.',
-    input.truncated
-      ? 'GitHub Search reported more than 1,000 matches, so this bounded report includes only the API result limit and understates activity.'
-      : 'GitHub Search is limited to 1,000 matches; this report was not truncated at generation time.',
+    input.incomplete
+      ? 'GitHub Search marked its response incomplete, so this report understates activity.'
+      : input.truncated
+        ? 'GitHub Search reported more matches than it returned, so this bounded report understates activity.'
+        : 'GitHub Search is limited to 1,000 matches; this report was not truncated at generation time.',
   ];
 
   return {

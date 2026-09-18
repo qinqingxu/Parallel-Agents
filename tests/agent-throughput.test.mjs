@@ -81,6 +81,20 @@ test('invalid repositories, dates, and oversized inputs fail closed', () => {
   assert.throws(() => parsePullRequestInput(Array.from({ length: 1001 }, () => ({}))), /1,000/);
 });
 
+test('GitHub incomplete search responses remain visible as a report limitation', () => {
+  const input = parsePullRequestInput({
+    total_count: 1,
+    incomplete_results: true,
+    items: [],
+  });
+  const report = buildThroughputReport(input, {
+    generatedAt,
+    repository: 'qinqingxu/Parallel-Agents',
+    source: 'github-api',
+  });
+  assert.match(report.limitations.join('\n'), /marked its response incomplete/);
+});
+
 test('CLI consumes fixture JSON without network and writes only aggregate metadata', async (t) => {
   const root = await fixture(t);
   const env = { ...process.env, GH_TOKEN: 'token-must-not-appear' };
