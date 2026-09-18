@@ -1,0 +1,48 @@
+{
+  "total_count": 8,
+  "items": [
+    {
+      "number": 101,
+      "user": { "login": "copilot-swe-agent[bot]", "type": "Bot" },
+      "pull_request": { "merged_at": "2026-09-17T00:00:00.000Z" },
+      "body": "raw review and PR content must not be copied"
+    },
+    {
+      "number": 102,
+      "user": { "login": "octocat", "type": "User" },
+      "pull_request": { "merged_at": "2026-09-16T00:00:00.000Z" }
+    },
+    {
+      "number": 103,
+      "user": { "login": "dependabot[bot]", "type": "Bot" },
+      "pull_request": { "merged_at": "2026-09-15T00:00:00.000Z" }
+    },
+    {
+      "number": 104,
+      "user": { "login": "github-actions[bot]", "type": "Bot" },
+      "pull_request": { "merged_at": "2026-09-14T00:00:00.000Z" }
+    },
+    {
+      "number": 105,
+      "user": { "login": "boundary-human", "type": "User" },
+      "pull_request": { "merged_at": "2026-06-20T00:00:00.000Z" }
+    },
+    {
+      "number": 106,
+      "user": { "login": "too-old", "type": "User" },
+      "pull_request": { "merged_at": "2026-06-19T23:59:59.999Z" }
+    },
+    {
+      "number": 107,
+      "user": { "login": "future", "type": "User" },
+      "pull_request": { "merged_at": "2026-09-18T00:00:00.001Z" }
+    },
+    {
+      "number": 108,
+      "user": { "login": "not-merged", "type": "User" },
+      "pull_request": { "merged_at": null }
+    }
+  ],
+  "token": "fixture-token-must-not-appear",
+  "review_body": "fixture-review-must-not-appear"
+}
