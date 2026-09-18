@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import {
   buildThroughputReport,
   classifyAuthor,
+  githubGraphqlArguments,
   parsePullRequestInput,
 } from '../scripts/agent-throughput.mjs';
 
@@ -17,6 +18,7 @@ const execFileAsync = promisify(execFile);
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const cli = resolve(testDirectory, '..', 'scripts', 'agent-throughput.mjs');
 const input = resolve(testDirectory, 'fixtures', 'agent-throughput-prs.json');
+const graphqlInput = resolve(testDirectory, 'fixtures', 'agent-throughput-graphql-prs.json');
 const generatedAt = '2026-09-18T00:00:00.000Z';
 
 async function fixture(t) {
@@ -57,6 +59,42 @@ test('fixture metadata produces a bounded rolling 90-day aggregate', async () =>
   assert.equal(report.repository, 'qinqingxu/Parallel-Agents');
   assert.equal(report.source, 'injected-json');
   assert.ok(report.limitations.every((item) => typeof item === 'string'));
+});
+
+test('GraphQL pull request metadata with mergedAt produces the expected aggregate', async () => {
+  const payload = JSON.parse(await readFile(graphqlInput, 'utf8'));
+  const report = buildThroughputReport(parsePullRequestInput(payload), {
+    generatedAt,
+    repository: 'qinqingxu/Parallel-Agents',
+    source: 'github-api',
+  });
+
+  assert.equal(report.mergedPrCount, 5);
+  assert.deepEqual(report.authorCounts, {
+    agent: 1,
+    human: 2,
+    dependency: 1,
+    otherAutomation: 1,
+  });
+});
+
+test('live query projects only bounded aggregate metadata', () => {
+  const arguments_ = githubGraphqlArguments(
+    'qinqingxu/Parallel-Agents',
+    new Date('2026-09-18T00:00:00.000Z'),
+  );
+  const query = arguments_.find((argument) => argument.startsWith('query='));
+
+  assert.deepEqual(arguments_.slice(0, 4), ['api', 'graphql', '--paginate', '--slurp']);
+  assert.match(query, /issueCount|pageInfo|mergedAt|login|__typename/);
+  assert.doesNotMatch(query, /body|review|commit|environment|token/i);
+  assert.ok(
+    arguments_.some(
+      (argument) =>
+        argument ===
+        'searchQuery=repo:qinqingxu/Parallel-Agents is:pr is:merged merged:>=2026-06-20',
+    ),
+  );
 });
 
 test('invalid repositories, dates, and oversized inputs fail closed', () => {

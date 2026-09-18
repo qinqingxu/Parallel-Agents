@@ -12,6 +12,24 @@ const WINDOW_DAYS = 90;
 const MAX_PULL_REQUESTS = 1_000;
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const categories = ['agent', 'human', 'dependency', 'otherAutomation'];
+const pullRequestSearchQuery = `query($searchQuery: String!, $endCursor: String) {
+  search(query: $searchQuery, type: ISSUE, first: 100, after: $endCursor) {
+    issueCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on PullRequest {
+        mergedAt
+        author {
+          login
+          __typename
+        }
+      }
+    }
+  }
+}`;
 const agentLogins = new Set([
   'chatgpt-codex-connector',
   'claude',
@@ -31,7 +49,8 @@ function normalizedLogin(author) {
 export function classifyAuthor(author) {
   const login = normalizedLogin(author);
   const baseLogin = login.replace(/\[bot\]$/, '');
-  const automated = author?.type === 'Bot' || login.endsWith('[bot]');
+  const automated =
+    author?.type === 'Bot' || author?.__typename === 'Bot' || login.endsWith('[bot]');
   if (automated && agentLogins.has(baseLogin)) return 'agent';
   if (
     automated &&
@@ -39,7 +58,7 @@ export function classifyAuthor(author) {
   ) {
     return 'dependency';
   }
-  if (author?.type === 'User') return 'human';
+  if (author?.type === 'User' || author?.__typename === 'User') return 'human';
   return 'otherAutomation';
 }
 
@@ -47,7 +66,13 @@ export function parsePullRequestInput(payload) {
   let items;
   let totalCount;
   let incomplete;
-  if (
+  let hasNextPage = false;
+  if (Array.isArray(payload) && payload.length > 0 && payload.every((page) => page?.data?.search)) {
+    items = payload.flatMap((page) => page.data.search.nodes);
+    totalCount = payload[0].data.search.issueCount;
+    incomplete = false;
+    hasNextPage = payload.some((page) => page.data.search.pageInfo?.hasNextPage === true);
+  } else if (
     Array.isArray(payload) &&
     payload.length > 0 &&
     payload.every((page) => page && Array.isArray(page.items))
@@ -74,7 +99,7 @@ export function parsePullRequestInput(payload) {
   return {
     items,
     incomplete,
-    truncated: Number.isInteger(totalCount) && totalCount > items.length,
+    truncated: hasNextPage || (Number.isInteger(totalCount) && totalCount > items.length),
   };
 }
 
@@ -99,7 +124,7 @@ export function buildThroughputReport(input, options) {
   const start = generated.getTime() - WINDOW_DAYS * DAY_MS;
   const authorCounts = Object.fromEntries(categories.map((category) => [category, 0]));
   for (const item of input.items) {
-    const mergedAt = item?.pull_request?.merged_at ?? item?.merged_at;
+    const mergedAt = item?.pull_request?.merged_at ?? item?.merged_at ?? item?.mergedAt;
     const merged = typeof mergedAt === 'string' ? Date.parse(mergedAt) : Number.NaN;
     if (!Number.isFinite(merged) || merged < start || merged > generated.getTime()) continue;
     authorCounts[classifyAuthor(item.user ?? item.author)] += 1;
@@ -130,25 +155,27 @@ export function buildThroughputReport(input, options) {
   };
 }
 
-async function fetchPullRequests(repository, generatedAt) {
+export function githubGraphqlArguments(repository, generatedAt) {
   const since = new Date(generatedAt.getTime() - WINDOW_DAYS * DAY_MS).toISOString().slice(0, 10);
-  const query = `repo:${repository} is:pr is:merged merged:>=${since}`;
-  const { stdout } = await execFileAsync(
-    'gh',
-    [
-      'api',
-      '--method',
-      'GET',
-      '--paginate',
-      '--slurp',
-      'search/issues',
-      '-f',
-      `q=${query}`,
-      '-f',
-      'per_page=100',
-    ],
-    { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024, windowsHide: true },
-  );
+  const searchQuery = `repo:${repository} is:pr is:merged merged:>=${since}`;
+  return [
+    'api',
+    'graphql',
+    '--paginate',
+    '--slurp',
+    '-f',
+    `query=${pullRequestSearchQuery}`,
+    '-f',
+    `searchQuery=${searchQuery}`,
+  ];
+}
+
+async function fetchPullRequests(repository, generatedAt) {
+  const { stdout } = await execFileAsync('gh', githubGraphqlArguments(repository, generatedAt), {
+    encoding: 'utf8',
+    maxBuffer: 20 * 1024 * 1024,
+    windowsHide: true,
+  });
   return parsePullRequestInput(JSON.parse(stdout));
 }
 

@@ -1,0 +1,41 @@
+[
+  {
+    "data": {
+      "search": {
+        "issueCount": 8,
+        "pageInfo": { "hasNextPage": false, "endCursor": null },
+        "nodes": [
+          {
+            "mergedAt": "2026-09-17T00:00:00.000Z",
+            "author": { "login": "copilot-swe-agent[bot]", "__typename": "Bot" }
+          },
+          {
+            "mergedAt": "2026-09-16T00:00:00.000Z",
+            "author": { "login": "octocat", "__typename": "User" }
+          },
+          {
+            "mergedAt": "2026-09-15T00:00:00.000Z",
+            "author": { "login": "dependabot[bot]", "__typename": "Bot" }
+          },
+          {
+            "mergedAt": "2026-09-14T00:00:00.000Z",
+            "author": { "login": "github-actions[bot]", "__typename": "Bot" }
+          },
+          {
+            "mergedAt": "2026-06-20T00:00:00.000Z",
+            "author": { "login": "boundary-human", "__typename": "User" }
+          },
+          {
+            "mergedAt": "2026-06-19T23:59:59.999Z",
+            "author": { "login": "too-old", "__typename": "User" }
+          },
+          {
+            "mergedAt": "2026-09-18T00:00:00.001Z",
+            "author": { "login": "future", "__typename": "User" }
+          },
+          { "mergedAt": null, "author": { "login": "not-merged", "__typename": "User" } }
+        ]
+      }
+    }
+  }
+]

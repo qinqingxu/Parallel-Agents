@@ -32,9 +32,10 @@ installer/signing qualification, or remote branch-policy enforcement.
 ## Agent throughput report
 
 [Agent throughput report](../.github/workflows/agent-throughput.yml) runs weekly or by manual
-dispatch with read-only repository permissions. It queries GitHub repository metadata through
-`gh api`, measures merged pull requests in the rolling 90 days ending at generation time, and uploads
-the unique JSON file under `reports/agent-throughput`. It does not inspect provider histories or
+dispatch with read-only repository permissions. It queries GitHub GraphQL pull-request metadata
+through `gh api`, selecting only author login/type, merge timestamp, and pagination/count metadata.
+It measures merged pull requests in the rolling 90 days ending at generation time and uploads the
+unique JSON file under `reports/agent-throughput`. It does not inspect provider histories or
 application data and does not write to the repository.
 
 For an authenticated repository query:
@@ -43,7 +44,7 @@ For an authenticated repository query:
 node scripts/agent-throughput.mjs --repository owner/name
 ```
 
-Tests and reproducible local inspection can inject a GitHub Search JSON response without network
+Tests and reproducible local inspection can inject a GitHub GraphQL JSON response without network
 access:
 
 ```powershell
