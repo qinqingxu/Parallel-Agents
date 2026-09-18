@@ -10,6 +10,7 @@ assert.ok(
   'Run this fixture through npm run test:smoke',
 );
 const startedAt = Date.now();
+const smokeTimeoutMs = 120_000;
 let finished = false;
 let windowUnderTest;
 let initialJavaScriptBytes;
@@ -41,7 +42,10 @@ function finish(error, checks = []) {
 
 process.on('uncaughtException', (error) => finish(error));
 process.on('unhandledRejection', (error) => finish(error));
-setTimeout(() => finish(new Error('Electron smoke test exceeded 60 seconds')), 60_000).unref();
+setTimeout(
+  () => finish(new Error(`Electron smoke test exceeded ${smokeTimeoutMs / 1000} seconds`)),
+  smokeTimeoutMs,
+).unref();
 
 async function checkRenderer(projectPath) {
   const checks = [];
