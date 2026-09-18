@@ -3,17 +3,9 @@ name: Copilot Setup Steps
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/copilot-setup-steps.yml'
-      - '.node-version'
-      - 'package.json'
-      - 'package-lock.json'
+    branches:
+      - main
   pull_request:
-    paths:
-      - '.github/workflows/copilot-setup-steps.yml'
-      - '.node-version'
-      - 'package.json'
-      - 'package-lock.json'
 
 jobs:
   copilot-setup-steps:
