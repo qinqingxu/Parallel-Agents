@@ -140,6 +140,9 @@ The [validation skill](../.github/skills/validate-changes/SKILL.md) gives a repe
 The [validation repair prompt](../.github/prompts/validation-repair.prompt.md) consumes only active
 entries from the [learned-rule corpus](../.github/agent-rules/learned-rules.json); the MCP
 `repository_doctor` tool exposes the same active subset to clients.
+The [recurring Copilot review workflow](../.github/workflows/recurring-copilot-review.yml) adds a
+pull-request review handoff with a literal, scoped Copilot prompt. Its configured output is review
+guidance, not proof that a finding was observed, fixed, or promoted into the learned-rule corpus.
 The [maintenance evidence reviewer](../.github/agents/maintenance-review.agent.md) is manually invoked,
 read-only, and cannot edit, execute commands, or publish. A human remains responsible for applying
 patches, creating pull requests, and merging.
