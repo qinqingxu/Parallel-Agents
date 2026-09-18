@@ -26,7 +26,7 @@ version and must decide whether it supports it; legacy batch semantics are not a
 
 | Tool                  | Capability                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------- |
-| `repository_doctor`   | Inspect Node/npm/Git and the existing dependency/setup contract; never install              |
+| `repository_doctor`   | Inspect Node/npm/Git, setup contract, and active learned rules; never install               |
 | `maintenance_preview` | Read-only bounded formatting inspection; no apply option                                    |
 | `run_validation`      | Run one of `docs`, `format`, `lint`, `types`, or `unit`, with the existing fixed npm script |
 | `verify_evidence`     | Check a source-bound evidence envelope and its constrained artifact hashes                  |
@@ -49,3 +49,7 @@ Content binding is not independent proof of execution. See the
 [evidence protocol](specs/evidence-v1.md). The server, protocol, malformed input, slow clients,
 fixed-command execution, and failure paths are exercised by
 [the protocol tests](../tests/mcp-server.test.mjs).
+
+The doctor tool consumes only active entries from the
+[learned-rule corpus](../.github/agent-rules/learned-rules.json). Candidate and retired rules remain
+validated by `npm run check:agent-corpus` but are not returned to later agent runs.

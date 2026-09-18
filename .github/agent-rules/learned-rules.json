@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "maxActiveRules": 5,
+  "rules": [
+    {
+      "id": "git-fixtures-clear-repository-environment",
+      "state": "active",
+      "summary": "Clear repository-local Git environment before fixture Git commands so inherited indexes or worktrees cannot redirect writes.",
+      "appliesTo": ["scripts/**", "tests/**"],
+      "evidence": [
+        {
+          "type": "test",
+          "path": "tests/helpers/isolated-git.mjs",
+          "note": "The test runner preloads the repository Git-environment scrubber."
+        },
+        {
+          "type": "instruction",
+          "path": ".github/instructions/tooling.instructions.md",
+          "note": "Tooling instructions require clearing repository-local Git environment in fixtures."
+        }
+      ],
+      "promotion": {
+        "approvedBy": "repository owner",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "id": "report-paths-reject-links-and-escapes",
+      "state": "active",
+      "summary": "Generated validation and maintenance reports must use fresh repository-contained paths and reject symlinks or escaping destinations.",
+      "appliesTo": ["scripts/**", "tests/**", "schemas/**"],
+      "evidence": [
+        {
+          "type": "test",
+          "path": "tests/ci-report.test.mjs",
+          "note": "CI receipt tests cover preserving prior runs and rejecting link redirects."
+        },
+        {
+          "type": "implementation",
+          "path": "scripts/ci-report.mjs",
+          "note": "Report directory creation verifies canonical repository containment before writing."
+        }
+      ],
+      "promotion": {
+        "approvedBy": "repository owner",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "id": "agent-corpus-schema-rollout",
+      "state": "candidate",
+      "summary": "Validate prompts, path-scoped instructions, repository skills, and learned rules as one bounded agent-instruction corpus.",
+      "appliesTo": [".github/prompts/**", ".github/instructions/**", ".github/skills/**"],
+      "evidence": [
+        {
+          "type": "test",
+          "path": "tests/agent-corpus.test.mjs",
+          "note": "Candidate rule is under validation before promotion."
+        }
+      ]
+    },
+    {
+      "id": "score-only-placeholder-docs",
+      "state": "retired",
+      "summary": "Do not add placeholder reports or learning documents that are not consumed by a validator or later agent run.",
+      "appliesTo": ["docs/**"],
+      "evidence": [
+        {
+          "type": "decision",
+          "path": "docs/automation.md",
+          "note": "Active automation docs distinguish real receipts from prose-only claims."
+        }
+      ],
+      "retiredReason": "Replaced by validated corpus entries and source-bound receipts."
+    }
+  ]
+}

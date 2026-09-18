@@ -96,12 +96,13 @@ export function isolatedEnvironment(home, source = process.env) {
 
 const requiredScripts = Object.freeze({
   check:
-    'npm run lint && npm run format:check && npm run typecheck && npm test && npm run check:docs',
+    'npm run lint && npm run format:check && npm run typecheck && npm test && npm run check:docs && npm run check:agent-corpus',
   lint: 'eslint . --max-warnings 0',
   'format:check': 'prettier --check .',
   typecheck: 'tsc --noEmit',
   test: 'node --test --test-concurrency=4 --import ./tests/helpers/isolated-git.mjs --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/*.test.mjs',
   'check:docs': 'node scripts/check-docs.mjs',
+  'check:agent-corpus': 'node scripts/check-agent-corpus.mjs',
 });
 
 export function requireCandidateScripts(manifest) {

@@ -224,7 +224,7 @@ export function parseCheckProgress(stdout, catalogue) {
     }
     line = stripVTControlCharacters(line);
     const stage = line.match(
-      /^> parallel-agents@\d+\.\d+\.\d+(?:[-+][a-z0-9.+-]+)? (check|lint|format:check|typecheck|test|check:docs)$/iu,
+      /^> parallel-agents@\d+\.\d+\.\d+(?:[-+][a-z0-9.+-]+)? (check|lint|format:check|typecheck|test|check:docs|check:agent-corpus)$/iu,
     );
     if (stage) {
       const name = stage[1].toLowerCase();

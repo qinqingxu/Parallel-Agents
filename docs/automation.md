@@ -7,7 +7,8 @@ The [agent guide](../AGENTS.md) remains the shared boundary contract.
 
 [Validate](../.github/workflows/ci.yml) uses the runner's normal shell and separately names
 installation, lint, format verification, type checking, tests, documentation contracts, build,
-Windows native/package checks, and dependency audit. Failures retain their original step outcome.
+agent instruction corpus validation, Windows native/package checks, and dependency audit. Failures
+retain their original step outcome.
 
 `npm run test:ci` writes `junit.xml`, `coverage.lcov`, and `result.json` in a fresh directory under
 `reports/tests`. It never reuses predictable output files, which could be links to unrelated data.
@@ -16,7 +17,15 @@ Coverage describes executed modules, not total application or native-runtime cov
 writes a unique receipt/summary under `reports/validation`, and returns nonzero when required
 checks failed or did not complete. It never invents missing results.
 
-The [version-one JSON schema](../schemas/validation-report.v1.schema.json) is the consumer contract.
+`npm run check:agent-corpus` validates the repository-shipped agent instructions, prompts, and
+skills as a bounded machine-operable corpus. It verifies required files, frontmatter, prompt
+sections, learned-rule lifecycle state, repeated active-rule evidence, and repository containment
+without invoking a provider model or changing application runtime files. Candidate and retired
+learned rules are validated but not consumed by later agent runs.
+
+The [version-two JSON schema](../schemas/validation-report.v2.schema.json) is the current consumer
+contract; [version one](../schemas/validation-report.v1.schema.json) remains available for
+historical receipts.
 The report describes workflow-step outcomes; it is not independent proof of a live provider,
 installer/signing qualification, or remote branch-policy enforcement.
 
@@ -93,6 +102,9 @@ change firewall policy, install hooks, provide credentials, or qualify native Li
 Copilot only uses the special workflow after it exists on the default branch.
 
 The [validation skill](../.github/skills/validate-changes/SKILL.md) gives a repeatable local procedure.
+The [validation repair prompt](../.github/prompts/validation-repair.prompt.md) consumes only active
+entries from the [learned-rule corpus](../.github/agent-rules/learned-rules.json); the MCP
+`repository_doctor` tool exposes the same active subset to clients.
 The [maintenance evidence reviewer](../.github/agents/maintenance-review.agent.md) is manually invoked,
 read-only, and cannot edit, execute commands, or publish. A human remains responsible for applying
 patches, creating pull requests, and merging.

@@ -6,19 +6,78 @@ const error = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, messa
 const success = (id, result) => ({ jsonrpc: '2.0', id, result });
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+function validRequest(message) {
+  return (
+    record(message) &&
+    message.jsonrpc === '2.0' &&
+    typeof message.method === 'string' &&
+    (!Object.hasOwn(message, 'id') ||
+      typeof message.id === 'string' ||
+      Number.isSafeInteger(message.id))
+  );
+}
+
+function initializedResponse(id, params, initialized) {
+  if (
+    initialized ||
+    !record(params) ||
+    typeof params.protocolVersion !== 'string' ||
+    !record(params.capabilities) ||
+    !record(params.clientInfo) ||
+    typeof params.clientInfo.name !== 'string' ||
+    typeof params.clientInfo.version !== 'string'
+  ) {
+    return error(id, -32602, 'Invalid or repeated initialization.');
+  }
+  return success(id, {
+    protocolVersion,
+    capabilities: { tools: { listChanged: false } },
+    serverInfo: { name: 'parallel-agents-engineering', version: '1.0.0' },
+    instructions:
+      'Local trusted-checkout engineering only. No arbitrary commands, repairs, publishing, or provider access.',
+  });
+}
+
+function validateToolCall(params) {
+  if (
+    !record(params) ||
+    Object.keys(params).some((key) => !['name', 'arguments', '_meta'].includes(key))
+  ) {
+    throw new Error('Invalid tool call parameters.');
+  }
+  validateArguments(params.name, params.arguments ?? {});
+}
+
+async function runTool(tools, params) {
+  if (typeof tools[params.name] !== 'function')
+    throw new Error('Tool implementation is unavailable.');
+  const result = await tools[params.name](params.arguments ?? {});
+  if (!record(result) || typeof result.status !== 'string')
+    throw new Error('Tool returned an invalid result.');
+  return result;
+}
+
+function toolResponse(id, result) {
+  return success(id, {
+    content: [{ type: 'text', text: JSON.stringify(result) }],
+    structuredContent: result,
+    isError: !['passed', 'clean'].includes(result.status),
+  });
+}
+
+function toolFailure(id, failure) {
+  return success(id, {
+    content: [{ type: 'text', text: String(failure.message ?? 'Engineering tool failed.') }],
+    isError: true,
+  });
+}
+
 export function createProtocol(tools) {
   let initialized = false;
   let ready = false;
   let busy = false;
   return async function handle(message) {
-    if (
-      !record(message) ||
-      message.jsonrpc !== '2.0' ||
-      typeof message.method !== 'string' ||
-      (Object.hasOwn(message, 'id') &&
-        typeof message.id !== 'string' &&
-        !Number.isSafeInteger(message.id))
-    ) {
+    if (!validRequest(message)) {
       return error(null, -32600, 'Invalid JSON-RPC request.');
     }
     if (!Object.hasOwn(message, 'id')) {
@@ -27,25 +86,10 @@ export function createProtocol(tools) {
     }
     const { id, method } = message;
     if (method === 'initialize') {
-      if (
-        initialized ||
-        !record(message.params) ||
-        typeof message.params.protocolVersion !== 'string' ||
-        !record(message.params.capabilities) ||
-        !record(message.params.clientInfo) ||
-        typeof message.params.clientInfo.name !== 'string' ||
-        typeof message.params.clientInfo.version !== 'string'
-      ) {
-        return error(id, -32602, 'Invalid or repeated initialization.');
-      }
+      const response = initializedResponse(id, message.params, initialized);
+      if (response.error) return response;
       initialized = true;
-      return success(id, {
-        protocolVersion,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'parallel-agents-engineering', version: '1.0.0' },
-        instructions:
-          'Local trusted-checkout engineering only. No arbitrary commands, repairs, publishing, or provider access.',
-      });
+      return response;
     }
     if (method === 'ping') return success(id, {});
     if (!ready) return error(id, -32002, 'Initialize the MCP session before calling tools.');
@@ -53,13 +97,7 @@ export function createProtocol(tools) {
     if (method !== 'tools/call') return error(id, -32601, 'Method not found.');
     const params = message.params;
     try {
-      if (
-        !record(params) ||
-        Object.keys(params).some((key) => !['name', 'arguments', '_meta'].includes(key))
-      ) {
-        throw new Error('Invalid tool call parameters.');
-      }
-      validateArguments(params.name, params.arguments ?? {});
+      validateToolCall(params);
     } catch (failure) {
       return error(id, -32602, failure.message);
     }
@@ -71,22 +109,9 @@ export function createProtocol(tools) {
       );
     busy = true;
     try {
-      if (typeof tools[params.name] !== 'function')
-        throw new Error('Tool implementation is unavailable.');
-      const result = await tools[params.name](params.arguments ?? {});
-      if (!record(result) || typeof result.status !== 'string')
-        throw new Error('Tool returned an invalid result.');
-      const isError = !['passed', 'clean'].includes(result.status);
-      return success(id, {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        structuredContent: result,
-        isError,
-      });
+      return toolResponse(id, await runTool(tools, params));
     } catch (failure) {
-      return success(id, {
-        content: [{ type: 'text', text: String(failure.message ?? 'Engineering tool failed.') }],
-        isError: true,
-      });
+      return toolFailure(id, failure);
     } finally {
       busy = false;
     }

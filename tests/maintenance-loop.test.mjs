@@ -147,6 +147,7 @@ test('candidate contract refuses recursive E2E, lifecycle hooks, and replacement
     ['precheck', 'node injected.mjs'],
     ['posttest', 'npm install'],
     ['check:docs', 'node -e "process.exit(0)"'],
+    ['check:agent-corpus', 'node -e "process.exit(0)"'],
     ['test', expectedTest.replace('--test-concurrency=4', '--test-concurrency=0')],
     ['test', expectedTest.replace('--test-concurrency=4', '--test-concurrency=16')],
     ['test', expectedTest.replace('--test-concurrency=4', '--test-concurrency 4')],
@@ -753,11 +754,13 @@ test('parsed progress retains source locations and stages but never raw titles o
   const secret = 'fixture-private-diagnostic-do-not-store';
   const stdout = [
     '> parallel-agents@0.1.7 check',
-    '> npm run lint && npm run format:check && npm run typecheck && npm test && npm run check:docs',
+    '> npm run lint && npm run format:check && npm run typecheck && npm test && npm run check:docs && npm run check:agent-corpus',
     '> parallel-agents@0.1.7 lint',
     '> parallel-agents@0.1.7 format:check',
     '> parallel-agents@0.1.7 typecheck',
     '> parallel-agents@0.1.7 test',
+    '> parallel-agents@0.1.7 check:docs',
+    '> parallel-agents@0.1.7 check:agent-corpus',
     '\u001b[32m\u2714 fast static result (1.25ms)\u001b[39m',
     `\u2714 ${secret} (2ms)`,
     '\u2716 slow static result (4500ms)',
@@ -770,8 +773,16 @@ test('parsed progress retains source locations and stages but never raw titles o
   const progress = parseCheckProgress(Buffer.from(stdout), catalogue);
   assert.equal(progress.schemaVersion, 1);
   assert.equal(progress.scope, 'captured-stdout-observations-only');
-  assert.equal(progress.lastObservedStage, 'test');
-  assert.deepEqual(progress.observedStages, ['check', 'lint', 'format:check', 'typecheck', 'test']);
+  assert.equal(progress.lastObservedStage, 'check:agent-corpus');
+  assert.deepEqual(progress.observedStages, [
+    'check',
+    'lint',
+    'format:check',
+    'typecheck',
+    'test',
+    'check:docs',
+    'check:agent-corpus',
+  ]);
   assert.deepEqual(progress.counts, {
     passed: 2,
     failed: 1,

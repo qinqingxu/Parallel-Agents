@@ -174,9 +174,18 @@ test('sealing refuses changed content after a validation checkpoint and preserve
 test('workflow report provenance requires an unchanged committed checkout', async (t) => {
   const { root } = await fixture(t);
   const checks = Object.fromEntries(
-    ['install', 'lint', 'format', 'typecheck', 'tests', 'docs', 'build', 'native', 'audit'].map(
-      (name) => [name, 'success'],
-    ),
+    [
+      'install',
+      'lint',
+      'format',
+      'typecheck',
+      'tests',
+      'docs',
+      'agent-corpus',
+      'build',
+      'native',
+      'audit',
+    ].map((name) => [name, 'success']),
   );
   const env = {
     ...process.env,

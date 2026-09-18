@@ -24,6 +24,7 @@ const checkNames = [
   'typecheck',
   'tests',
   'docs',
+  'agent-corpus',
   'build',
   'native',
   'audit',
@@ -41,7 +42,7 @@ async function fixture(t) {
 
 test('Windows success requires every real check including native validation', () => {
   const report = summarizeResults('Windows', results());
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.status, 'success');
   assert.equal(report.platform, 'Windows');
   assert.equal(report.checks.length, checkNames.length);
@@ -71,10 +72,10 @@ test('unknown platforms, missing checks and invented outcomes are rejected', () 
   assert.throws(() => summarizeResults('Windows', []), /object/i);
 });
 
-test('generated receipts conform to the declared version-one property contract', async () => {
+test('generated receipts conform to the declared version-two property contract', async () => {
   const schema = JSON.parse(
     await readFile(
-      resolve(dirname(cli), '..', 'schemas', 'validation-report.v1.schema.json'),
+      resolve(dirname(cli), '..', 'schemas', 'validation-report.v2.schema.json'),
       'utf8',
     ),
   );
@@ -120,7 +121,7 @@ test('each CI receipt is versioned, machine-readable and preserves prior runs', 
   assert.notEqual(first.jsonPath, second.jsonPath);
   const stored = JSON.parse(await readFile(first.jsonPath, 'utf8'));
   assert.equal(stored.status, 'success');
-  assert.equal(stored.schemaVersion, 1);
+  assert.equal(stored.schemaVersion, 2);
   assert.equal(stored.evidenceSource, 'workflow-step-outcomes');
   assert.match(await readFile(first.markdownPath, 'utf8'), /Windows/);
 });

@@ -14,7 +14,7 @@ publishing, or approving a merge automatically. Follow [the repository guide](..
    the task is engineering-only. Reject paths outside the maintenance allowlist, ignored/generated
    content, symlink escapes, secrets, unexpected new files, and policy widening.
 3. Check the actual receipt, validation outcomes, rollback/conflict status, and relevant tests.
-   Consult the [versioned report contract](../../schemas/validation-report.v1.schema.json).
+   Consult the [current validation report contract](../../schemas/validation-report.v2.schema.json).
    Missing, skipped, failed, conflicting, or mismatched evidence must remain visible.
 4. Distinguish harmless formatting from behavior, command, permission, scope, or workflow-trigger
    changes. Check that a repair has not weakened the check it claims to satisfy.

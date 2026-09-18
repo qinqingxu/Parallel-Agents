@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { diagnose } from '../doctor.mjs';
+import { readActiveLearnedRules } from '../check-agent-corpus.mjs';
 import { prepareReportDirectory } from '../ci-report.mjs';
 import { captureCandidate, sealEvidence, verifyEvidence } from '../evidence/provenance.mjs';
 import { runMaintenance } from '../maintenance.mjs';
@@ -96,6 +97,7 @@ export async function createTools(directory) {
         npmCli: await resolveNpmCli(),
         env: validationEnvironment(),
       });
+      report.agentCorpus = { activeLearnedRules: await readActiveLearnedRules(root) };
       return { status: report.ok ? 'passed' : 'failed', report };
     },
     async maintenance_preview(args) {

@@ -156,13 +156,13 @@ async function checkRenderer(projectPath) {
     }
   };
   try {
-    const refresh = [...document.querySelectorAll('button')].find((button) =>
-      button.textContent.includes('Refresh Projects'),
-    );
-    await waitFor(
-      () => refresh && !refresh.disabled,
-      'The inventory refresh action is unavailable',
-    );
+    let refresh;
+    await waitFor(() => {
+      refresh = [...document.querySelectorAll('button')].find((button) =>
+        button.textContent.includes('Refresh Projects'),
+      );
+      return refresh && !refresh.disabled;
+    }, 'The inventory refresh action is unavailable');
     refresh.click();
     await waitFor(
       () =>

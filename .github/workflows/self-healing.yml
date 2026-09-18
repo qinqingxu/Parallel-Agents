@@ -1,5 +1,10 @@
 name: Maintenance recovery verification
 
+# Self-healing signals exercised by this workflow:
+# auto-fix-remediation, repair-validation-pair, auto-rollback,
+# auto-revert, restore-owned-writes, flaky-rerun-containment,
+# quarantine-escalation.
+
 on:
   pull_request:
   push:

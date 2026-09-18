@@ -1,7 +1,8 @@
 # Validation receipt protocol v1
 
-This is the implemented version-one consumer contract for
+This is the previous version-one consumer contract for historical
 [CI receipts](../../scripts/ci-report.mjs), not a development plan or a claim that a workflow ran.
+Current receipts use [Validation receipt protocol v2](validation-v2.md).
 The machine-readable definition is
 [validation-report.v1.schema.json](../../schemas/validation-report.v1.schema.json).
 
@@ -59,5 +60,6 @@ qualification, branch-protection enforcement, or successful deployment. Consumer
 the source revision and accompanying artifacts, not just a `success` string.
 
 Breaking key, outcome, or required-check changes require a new schema/protocol version. Version-one
-consumers must not silently reinterpret later versions. Property-contract and negative CLI tests
-in [ci-report.test.mjs](../../tests/ci-report.test.mjs) protect the current contract.
+consumers must not silently reinterpret later versions. Current property-contract and negative CLI
+tests in [ci-report.test.mjs](../../tests/ci-report.test.mjs) protect the latest schema while this
+document preserves the historical v1 shape.

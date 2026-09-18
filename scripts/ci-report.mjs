@@ -11,6 +11,7 @@ const commands = {
   typecheck: 'npm run typecheck',
   tests: 'npm run test:ci',
   docs: 'npm run check:docs',
+  'agent-corpus': 'npm run check:agent-corpus',
   build: 'npm run build',
   native: 'npm run pack',
   audit: 'npm audit --audit-level=high',
@@ -84,7 +85,7 @@ export function summarizeResults(platform, results) {
         `${check.name}: reproduce with \`${check.command}\`; inspect the failed step before editing.`,
     );
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     evidenceSource: 'workflow-step-outcomes',
     generatedAt: new Date().toISOString(),
     platform,
