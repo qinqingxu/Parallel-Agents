@@ -66,7 +66,7 @@ jobs:
         run: npm run check:docs
 
       - name: Validate agent instruction corpus
-        id: agent-corpus
+        id: agent_corpus
         run: npm run check:agent-corpus
 
       - name: Build the application
@@ -87,7 +87,7 @@ jobs:
         env:
           CI_PLATFORM: ${{ matrix.label }}
           CI_STEPS_JSON: >-
-            {"install":"${{ steps.install.outcome }}","lint":"${{ steps.lint.outcome }}","format":"${{ steps.format.outcome }}","typecheck":"${{ steps.typecheck.outcome }}","tests":"${{ steps.tests.outcome }}","docs":"${{ steps.docs.outcome }}","agent-corpus":"${{ steps.agent-corpus.outcome }}","build":"${{ steps.build.outcome }}","native":"${{ steps.native.outcome }}","audit":"${{ steps.audit.outcome }}"}
+            {"install":"${{ steps.install.outcome }}","lint":"${{ steps.lint.outcome }}","format":"${{ steps.format.outcome }}","typecheck":"${{ steps.typecheck.outcome }}","tests":"${{ steps.tests.outcome }}","docs":"${{ steps.docs.outcome }}","agent-corpus":"${{ steps.agent_corpus.outcome }}","build":"${{ steps.build.outcome }}","native":"${{ steps.native.outcome }}","audit":"${{ steps.audit.outcome }}"}
         run: npm run ci:report -- --with-provenance
 
       - name: Retain validation evidence
