@@ -281,7 +281,8 @@ review, and redacted secret scanning. [Copilot setup steps](.github/workflows/co
 prepare the non-GUI agent environment without changing firewall policy or providing credentials.
 See [automation contracts and limitations](docs/automation.md) before enabling or interpreting them.
 
-[CODEOWNERS](.github/CODEOWNERS) routes every path to **@jelllove**.
+[CODEOWNERS](.github/CODEOWNERS) routes every path to **@qinqingxu** and **@jelllove** during the
+mirror-migration window.
 [Dependabot](.github/dependabot.yml) defines weekly npm and GitHub Actions updates, each with
 `open-pull-requests-limit: 5`. Npm minor/patch updates are grouped into `development-tools` and
 `electron-toolchain`; GitHub Actions updates are separate, and major npm updates are not part of
