@@ -30,6 +30,7 @@ test('author classification distinguishes agents, people, dependencies, and othe
   assert.equal(classifyAuthor({ login: 'renovate[bot]', type: 'Bot' }), 'dependency');
   assert.equal(classifyAuthor({ login: 'github-actions[bot]', type: 'Bot' }), 'otherAutomation');
   assert.equal(classifyAuthor({ login: 'octocat', type: 'User' }), 'human');
+  assert.equal(classifyAuthor({ login: 'recursor-human', type: 'User' }), 'human');
 });
 
 test('fixture metadata produces a bounded rolling 90-day aggregate', async () => {

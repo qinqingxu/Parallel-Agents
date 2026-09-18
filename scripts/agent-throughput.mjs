@@ -12,6 +12,17 @@ const WINDOW_DAYS = 90;
 const MAX_PULL_REQUESTS = 1_000;
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const categories = ['agent', 'human', 'dependency', 'otherAutomation'];
+const agentLogins = new Set([
+  'chatgpt-codex-connector',
+  'claude',
+  'copilot',
+  'copilot-swe-agent',
+  'cursor',
+  'devin-ai-integration',
+  'gemini-code-assist',
+  'github-copilot',
+  'openai-codex',
+]);
 
 function normalizedLogin(author) {
   return typeof author?.login === 'string' ? author.login.toLowerCase() : '';
@@ -19,8 +30,15 @@ function normalizedLogin(author) {
 
 export function classifyAuthor(author) {
   const login = normalizedLogin(author);
-  if (/(?:copilot|codex|claude|gemini|devin|cursor|swe-agent)/.test(login)) return 'agent';
-  if (/(?:dependabot|renovate|snyk)/.test(login)) return 'dependency';
+  const baseLogin = login.replace(/\[bot\]$/, '');
+  const automated = author?.type === 'Bot' || login.endsWith('[bot]');
+  if (automated && agentLogins.has(baseLogin)) return 'agent';
+  if (
+    automated &&
+    (baseLogin === 'dependabot' || baseLogin.startsWith('renovate') || baseLogin.startsWith('snyk'))
+  ) {
+    return 'dependency';
+  }
   if (author?.type === 'User') return 'human';
   return 'otherAutomation';
 }

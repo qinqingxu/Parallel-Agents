@@ -29,6 +29,39 @@ historical receipts.
 The report describes workflow-step outcomes; it is not independent proof of a live provider,
 installer/signing qualification, or remote branch-policy enforcement.
 
+## Agent throughput report
+
+[Agent throughput report](../.github/workflows/agent-throughput.yml) runs weekly or by manual
+dispatch with read-only repository permissions. It queries GitHub repository metadata through
+`gh api`, measures merged pull requests in the rolling 90 days ending at generation time, and uploads
+the unique JSON file under `reports/agent-throughput`. It does not inspect provider histories or
+application data and does not write to the repository.
+
+For an authenticated repository query:
+
+```powershell
+node scripts/agent-throughput.mjs --repository owner/name
+```
+
+Tests and reproducible local inspection can inject a GitHub Search JSON response without network
+access:
+
+```powershell
+node scripts/agent-throughput.mjs --repository owner/name --input tests/fixtures/agent-throughput-prs.json --now 2026-09-18T00:00:00.000Z
+```
+
+Each report records `windowDays`, merged PR count, agent-authored merged count and share,
+PRs-per-day, generation time, repository, source, category counts, and limitations. Classification
+uses only GitHub account type and a reviewed login-name policy: known coding-agent names are
+`agent`, Dependabot/Renovate/Snyk names are `dependency`, remaining `User` accounts are `human`, and
+all other identities are `otherAutomation`. The artifact contains aggregates only; it does not
+serialize tokens, environment variables, PR/review bodies, commit text, or author logins.
+
+GitHub Search returns at most 1,000 results. The report is therefore bounded and explicitly records
+when the API total indicates truncation. Login-based classification can be imperfect, and PR counts
+do not measure effort, quality, unmerged work, or whether an agent had human assistance. Workflow
+configuration and a generated artifact also do not establish required-check enforcement.
+
 CI requests an additional [source-bound evidence envelope](specs/evidence-v1.md) with
 `--with-provenance`. It requires an unchanged committed checkout and binds the outcome receipt
 to current source/artifact hashes. It does not upgrade caller-supplied outcomes into independent proof.
