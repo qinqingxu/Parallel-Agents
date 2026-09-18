@@ -30,9 +30,9 @@ honestly ran a command. Consumers must still inspect real execution logs, exits,
 revision, and any fixture limitations. A failed check can have valid content binding.
 
 CI's `npm run ci:report -- --with-provenance` requires an unchanged committed checkout and emits
-an envelope beside its existing version-one outcome receipt. A modified checkout cannot produce
-that workflow-provenance mode. The existing receipt format remains compatible; provenance is a
-separate envelope rather than a silent schema change.
+an envelope beside the current validation outcome receipt. A modified checkout cannot produce
+that workflow-provenance mode. Provenance remains a separate envelope rather than a silent schema
+change to the validation receipt.
 
 Local tool checks record the source before running one fixed check, then seal the actual result.
 A source change during validation prevents sealing. This does not validate ignored files, binaries

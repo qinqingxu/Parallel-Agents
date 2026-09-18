@@ -20,6 +20,22 @@ async function fixture(t) {
   return root;
 }
 
+async function waitForProcessExit(pid, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error.code === 'ESRCH') return;
+      throw error;
+    }
+    if (Date.now() >= deadline) {
+      assert.fail(`Process ${pid} remained visible after ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 test('npm discovery selects a real absolute JavaScript CLI, never npm.cmd or a shell string', async () => {
   const cli = await resolveNpmCli();
   assert.ok(isAbsolute(cli));
@@ -86,7 +102,7 @@ test('subprocess timeout is bounded and terminates its own PID', async (t) => {
   assert.ok(result.durationMs >= 100);
   assert.ok(result.durationMs < 10_000);
   assert.equal(result.terminationFailed, false);
-  assert.throws(() => process.kill(result.pid, 0), { code: 'ESRCH' });
+  await waitForProcessExit(result.pid);
 });
 
 test('timeout also terminates owned descendants rather than leaving a validation process behind', async (t) => {
@@ -112,7 +128,7 @@ test('timeout also terminates owned descendants rather than leaving a validation
   });
   assert.equal(result.status, 'timed-out');
   assert.equal(result.terminationFailed, false);
-  assert.throws(() => process.kill(descendant, 0), { code: 'ESRCH' });
+  await waitForProcessExit(descendant);
 });
 
 test('flooding output and a missing executable fail instead of succeeding or hanging', async (t) => {

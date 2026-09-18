@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jelllove/Parallel-Agents/schemas/agent-learned-rules.v1.schema.json",
+  "title": "Agent learned-rule corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "maxActiveRules", "rules"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "maxActiveRules": { "type": "integer", "minimum": 1 },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "state", "summary", "appliesTo", "evidence"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{5,80}$"
+          },
+          "state": { "enum": ["candidate", "active", "retired"] },
+          "summary": { "type": "string", "minLength": 20 },
+          "appliesTo": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "path", "note"],
+              "properties": {
+                "type": { "enum": ["decision", "implementation", "instruction", "test"] },
+                "path": { "type": "string", "minLength": 1 },
+                "note": { "type": "string", "minLength": 10 }
+              }
+            }
+          },
+          "promotion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["approvedBy", "date"],
+            "properties": {
+              "approvedBy": { "type": "string", "minLength": 1 },
+              "date": { "type": "string", "format": "date" }
+            }
+          },
+          "retiredReason": { "type": "string", "minLength": 20 }
+        }
+      }
+    }
+  }
+}

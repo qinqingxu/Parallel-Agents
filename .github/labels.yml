@@ -1,0 +1,12 @@
+- name: validation
+  color: '1f883d'
+  description: 'Validation, test, CI, or evidence workflow changes'
+- name: maintenance
+  color: '0969da'
+  description: 'Bounded repository maintenance and recovery-loop work'
+- name: security
+  color: 'd1242f'
+  description: 'Security checks, dependency review, or secret-scanning work'
+- name: agentic-workflow
+  color: '8250df'
+  description: 'Agent-facing automation, MCP, skills, or review workflow changes'
