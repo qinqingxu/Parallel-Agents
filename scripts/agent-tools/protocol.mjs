@@ -45,13 +45,14 @@ function validateToolCall(params) {
   ) {
     throw new Error('Invalid tool call parameters.');
   }
-  validateArguments(params.name, params.arguments ?? {});
+  const args = Object.hasOwn(params, 'arguments') ? params.arguments : {};
+  validateArguments(params.name, args);
+  return args;
 }
 
-async function runTool(tools, params) {
-  if (typeof tools[params.name] !== 'function')
-    throw new Error('Tool implementation is unavailable.');
-  const result = await tools[params.name](params.arguments ?? {});
+async function runTool(tool, args) {
+  if (typeof tool !== 'function') throw new Error('Tool implementation is unavailable.');
+  const result = await tool(args);
   if (!record(result) || typeof result.status !== 'string')
     throw new Error('Tool returned an invalid result.');
   return result;
@@ -96,8 +97,9 @@ export function createProtocol(tools) {
     if (method === 'tools/list') return success(id, { tools: TOOL_DEFINITIONS });
     if (method !== 'tools/call') return error(id, -32601, 'Method not found.');
     const params = message.params;
+    let args;
     try {
-      validateToolCall(params);
+      args = validateToolCall(params);
     } catch (failure) {
       return error(id, -32602, failure.message);
     }
@@ -109,7 +111,7 @@ export function createProtocol(tools) {
       );
     busy = true;
     try {
-      return toolResponse(id, await runTool(tools, params));
+      return toolResponse(id, await runTool(tools[params.name], args));
     } catch (failure) {
       return toolFailure(id, failure);
     } finally {

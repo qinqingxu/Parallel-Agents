@@ -78,6 +78,25 @@ test('unknown tools, extra arguments, malformed requests, and arbitrary commands
   assert.equal((await protocol(request(5, 'unknown'))).error.code, -32601);
 });
 
+test('tool calls reject null arguments but default omitted arguments to an empty object', async () => {
+  let received;
+  const protocol = await initialized({
+    repository_doctor: async (args) => {
+      received = args;
+      return { status: 'passed' };
+    },
+  });
+  const invalid = await protocol(
+    request(2, 'tools/call', { name: 'repository_doctor', arguments: null }),
+  );
+  assert.equal(invalid.error.code, -32602);
+  assert.equal(received, undefined);
+
+  const valid = await protocol(request(3, 'tools/call', { name: 'repository_doctor' }));
+  assert.equal(valid.result.isError, false);
+  assert.deepEqual(received, {});
+});
+
 for (const exitCode of [0, 5]) {
   test(`fixed validation really executes and retains the actual exit ${exitCode}`, async (t) => {
     const fixture = await realpath(await mkdtemp(join(tmpdir(), 'parallel-agents-tool-')));
