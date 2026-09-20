@@ -42,7 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .artifacts/recurring-copilot-review
-          gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --name-only > .artifacts/recurring-copilot-review/changed-files.txt
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" \
+            --jq '.[].filename' > .artifacts/recurring-copilot-review/changed-files.txt
           gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" > .artifacts/recurring-copilot-review/diff.patch
           test -s .artifacts/recurring-copilot-review/changed-files.txt
           test -s .artifacts/recurring-copilot-review/diff.patch
