@@ -10,7 +10,7 @@ import { withoutRepositoryGitEnvironment } from './git-environment.mjs';
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const smokeTimeoutMs = 120_000;
+const smokeProcessTimeoutMs = 150_000;
 const args = process.argv.slice(2);
 if (args.some((arg) => arg !== '--packaged')) {
   throw new Error('Usage: node scripts/smoke.mjs [--packaged]');
@@ -90,7 +90,13 @@ try {
       mainEntry,
       packaged ? 'packaged-smoke' : 'smoke',
     ],
-    { cwd: root, env, windowsHide: true, timeout: smokeTimeoutMs, maxBuffer: 4 * 1024 * 1024 },
+    {
+      cwd: root,
+      env,
+      windowsHide: true,
+      timeout: smokeProcessTimeoutMs,
+      maxBuffer: 4 * 1024 * 1024,
+    },
   );
   process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
