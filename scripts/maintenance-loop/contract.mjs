@@ -8,7 +8,7 @@ import { validationEnvironment } from '../maintenance/process.mjs';
 
 export const LOOP_LIMITS = Object.freeze({
   totalTimeoutMs: 540_000,
-  maintenanceTimeoutMs: 180_000,
+  maintenanceTimeoutMs: 240_000,
   validationTimeoutMs: 120_000,
   gitTimeoutMs: 10_000,
   maxCommands: 128,
