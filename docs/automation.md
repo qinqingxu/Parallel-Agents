@@ -141,8 +141,10 @@ The [validation repair prompt](../.github/prompts/validation-repair.prompt.md) c
 entries from the [learned-rule corpus](../.github/agent-rules/learned-rules.json); the MCP
 `repository_doctor` tool exposes the same active subset to clients.
 The [recurring Copilot review workflow](../.github/workflows/recurring-copilot-review.yml) adds a
-pull-request review handoff with a literal, scoped Copilot prompt. Its configured output is review
-guidance, not proof that a finding was observed, fixed, or promoted into the learned-rule corpus.
+pull-request review handoff. It runs from the trusted base context, captures the PR diff through
+GitHub APIs without executing PR-controlled code, and gives repository tokens only to the review
+step. Its configured output is review guidance, not proof that a finding was observed, fixed, or
+promoted into the learned-rule corpus.
 The [maintenance evidence reviewer](../.github/agents/maintenance-review.agent.md) is manually invoked,
 read-only, and cannot edit, execute commands, or publish. A human remains responsible for applying
 patches, creating pull requests, and merging.
