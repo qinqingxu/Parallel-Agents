@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -14,6 +14,19 @@ async function writeFiles(files) {
     await writeFile(path, content, 'utf8');
   }
   return root;
+}
+
+async function createSymlinkOrSkip(t, target, path, type) {
+  try {
+    await symlink(target, path, type);
+  } catch (error) {
+    if (['EPERM', 'ENOSYS', 'EACCES'].includes(error.code)) {
+      t.skip(`Symlink creation is unavailable on this host (${error.code}).`);
+      return false;
+    }
+    throw error;
+  }
+  return true;
 }
 
 test('agent instruction corpus remains machine-operable and scoped', async () => {
@@ -107,6 +120,148 @@ test('learned rules require lifecycle states, bounded active rules, and independ
   assert.ok(result.errors.some((error) => error.includes('promotion approval')));
   assert.ok(result.errors.some((error) => error.includes('retiredReason')));
   assert.ok(result.errors.some((error) => error.includes('missing.md')));
+});
+
+test('learned-rule corpus rejects unknown fields from the published contract', async (t) => {
+  const root = await writeFiles({
+    'AGENTS.md': '# Guide\n',
+    '.github/copilot-instructions.md': '# Copilot\n',
+    '.github/instructions/tooling.instructions.md':
+      "---\ndescription: Tools\napplyTo: 'scripts/**'\n---\n# Tools\n",
+    '.github/skills/review-maintenance/SKILL.md':
+      '---\nname: review-maintenance\ndescription: Review\n---\n# Review\n',
+    '.github/skills/validate-changes/SKILL.md':
+      '---\nname: validate-changes\ndescription: Validate\n---\n# Validate\n',
+    '.github/prompts/validation-repair.prompt.md':
+      '---\ndescription: Repair\nmode: agent\n---\n# Repair\n## Inputs\n## Procedure\n## Guardrails\n',
+    '.github/agent-rules/learned-rules.json': JSON.stringify({
+      schemaVersion: 1,
+      maxActiveRules: 3,
+      unexpectedRoot: true,
+      rules: [
+        {
+          id: 'unknown-field-rule',
+          state: 'active',
+          summary: 'This otherwise valid active rule includes unknown JSON fields.',
+          appliesTo: ['scripts/**'],
+          unexpectedRule: true,
+          evidence: [
+            {
+              type: 'test',
+              path: 'AGENTS.md',
+              note: 'Fixture test evidence.',
+              unexpectedEvidence: true,
+            },
+            {
+              type: 'instruction',
+              path: '.github/instructions/tooling.instructions.md',
+              note: 'Fixture instruction evidence.',
+            },
+          ],
+          promotion: {
+            approvedBy: 'fixture owner',
+            date: '2026-09-18',
+            unexpectedPromotion: true,
+          },
+        },
+      ],
+    }),
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const result = await checkAgentCorpus(root);
+  for (const field of [
+    'unexpectedRoot',
+    'unexpectedRule',
+    'unexpectedEvidence',
+    'unexpectedPromotion',
+  ]) {
+    assert.ok(result.errors.some((error) => error.includes(`unknown field "${field}"`)));
+  }
+});
+
+test('learned-rule readers reject symlinked corpus files before parsing', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'parallel-agents-corpus-link-'));
+  const outside = await mkdtemp(join(tmpdir(), 'parallel-agents-outside-corpus-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(outside, { recursive: true, force: true }));
+  await mkdir(join(root, '.github', 'agent-rules'), { recursive: true });
+  const outsideRules = join(outside, 'learned-rules.json');
+  await writeFile(
+    outsideRules,
+    JSON.stringify({
+      schemaVersion: 1,
+      maxActiveRules: 1,
+      rules: [
+        {
+          id: 'outside-active-rule',
+          state: 'active',
+          summary: 'This outside active rule must not be consumed.',
+          appliesTo: ['scripts/**'],
+          evidence: [{ type: 'test', path: 'AGENTS.md', note: 'Outside fixture.' }],
+          promotion: { approvedBy: 'outside', date: '2026-09-18' },
+        },
+      ],
+    }),
+    'utf8',
+  );
+  const linkedRules = join(root, '.github', 'agent-rules', 'learned-rules.json');
+  if (!(await createSymlinkOrSkip(t, outsideRules, linkedRules, 'file'))) return;
+
+  await assert.rejects(() => readActiveLearnedRules(root), /symbolic link|outside the repository/i);
+});
+
+test('agent corpus discovery rejects symlinked corpus directories', async (t) => {
+  const root = await writeFiles({
+    'AGENTS.md': '# Guide\n',
+    '.github/copilot-instructions.md': '# Copilot\n',
+    '.github/instructions/tooling.instructions.md':
+      "---\ndescription: Tools\napplyTo: 'scripts/**'\n---\n# Tools\n",
+    '.github/skills/review-maintenance/SKILL.md':
+      '---\nname: review-maintenance\ndescription: Review\n---\n# Review\n',
+    '.github/skills/validate-changes/SKILL.md':
+      '---\nname: validate-changes\ndescription: Validate\n---\n# Validate\n',
+    '.github/agent-rules/learned-rules.json': JSON.stringify({
+      schemaVersion: 1,
+      maxActiveRules: 1,
+      rules: [
+        {
+          id: 'valid-active-rule',
+          state: 'active',
+          summary: 'A valid active rule with enough evidence for the fixture.',
+          appliesTo: ['scripts/**'],
+          evidence: [
+            { type: 'test', path: 'AGENTS.md', note: 'Fixture test evidence.' },
+            {
+              type: 'instruction',
+              path: '.github/instructions/tooling.instructions.md',
+              note: 'Fixture instruction evidence.',
+            },
+          ],
+          promotion: { approvedBy: 'fixture owner', date: '2026-09-18' },
+        },
+      ],
+    }),
+  });
+  const outside = await mkdtemp(join(tmpdir(), 'parallel-agents-outside-prompts-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(outside, { recursive: true, force: true }));
+  await writeFile(
+    join(outside, 'validation-repair.prompt.md'),
+    '---\ndescription: External prompt\nmode: agent\n---\n# Repair\n## Inputs\n## Procedure\n## Guardrails\n',
+    'utf8',
+  );
+  await rm(join(root, '.github', 'prompts'), { recursive: true, force: true });
+  if (!(await createSymlinkOrSkip(t, outside, join(root, '.github', 'prompts'), 'junction'))) {
+    return;
+  }
+
+  const result = await checkAgentCorpus(root);
+  assert.ok(
+    result.errors.some((error) =>
+      error.includes('.github/prompts: agent corpus directory must not be a symbolic link'),
+    ),
+  );
 });
 
 test('later agent runs consume only active learned rules', async () => {

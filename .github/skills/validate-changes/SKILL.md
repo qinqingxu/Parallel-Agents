@@ -23,8 +23,8 @@ npm run check
 npm run build
 ```
 
-`check` includes lint, formatting verification, strict types, unit/regression tests, and executable
-documentation contracts. A successful build alone is not enough.
+`check` includes lint, formatting verification, strict types, unit/regression tests, executable
+documentation contracts, and the agent instruction corpus validator. A successful build alone is not enough.
 
 For machine-readable unit-test evidence, use `npm run test:ci`. It writes JUnit and LCOV artifacts
 under `reports`; coverage describes executed modules, not complete application coverage.

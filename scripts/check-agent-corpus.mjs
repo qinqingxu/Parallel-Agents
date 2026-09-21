@@ -18,6 +18,18 @@ const learnedRulesFile = '.github/agent-rules/learned-rules.json';
 const validPromptModes = new Set(['agent', 'ask', 'edit']);
 const validRuleStates = new Set(['candidate', 'active', 'retired']);
 const validEvidenceTypes = new Set(['decision', 'implementation', 'instruction', 'test']);
+const corpusFields = new Set(['schemaVersion', 'maxActiveRules', 'rules']);
+const ruleFields = new Set([
+  'id',
+  'state',
+  'summary',
+  'appliesTo',
+  'evidence',
+  'promotion',
+  'retiredReason',
+]);
+const evidenceFields = new Set(['type', 'path', 'note']);
+const promotionFields = new Set(['approvedBy', 'date']);
 
 function toPortable(path) {
   return path.split(sep).join('/');
@@ -84,6 +96,37 @@ async function assertContainedFile(root, file, errors) {
   }
 }
 
+async function assertContainedDirectory(root, directory, errors) {
+  const target = resolve(root, directory);
+  try {
+    const linkInfo = await lstat(target);
+    if (linkInfo.isSymbolicLink()) {
+      errors.push(`${directory}: agent corpus directory must not be a symbolic link.`);
+      return false;
+    }
+    const canonical = await realpath(target);
+    if (!isInside(root, canonical)) {
+      errors.push(`${directory}: resolves outside the repository.`);
+      return false;
+    }
+    const info = await stat(canonical);
+    if (!info.isDirectory()) {
+      errors.push(`${directory}: expected a directory.`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    errors.push(`${directory}: missing agent corpus directory (${error.code ?? error.message}).`);
+    return false;
+  }
+}
+
+function checkAllowedFields(value, allowed, prefix, errors) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`${prefix} has unknown field "${key}".`);
+  }
+}
+
 function lineForJsonKey(text, key) {
   const index = text.indexOf(`"${key}"`);
   return index === -1 ? 1 : text.slice(0, index).split('\n').length;
@@ -129,6 +172,7 @@ function parseCorpusObject(text, errors) {
 }
 
 function checkCorpusHeader(corpus, errors) {
+  checkAllowedFields(corpus, corpusFields, learnedRulesFile, errors);
   if (corpus.schemaVersion !== 1) errors.push(`${learnedRulesFile}: schemaVersion must be 1.`);
   if (!Number.isInteger(corpus.maxActiveRules) || corpus.maxActiveRules < 1) {
     errors.push(`${learnedRulesFile}: maxActiveRules must be a positive integer.`);
@@ -177,6 +221,7 @@ async function checkEvidence(root, rule, prefix, errors) {
       errors.push(`${evidencePrefix} must be an object.`);
       continue;
     }
+    checkAllowedFields(evidence, evidenceFields, evidencePrefix, errors);
     if (!validEvidenceTypes.has(evidence.type)) errors.push(`${evidencePrefix} has invalid type.`);
     else evidenceTypes.add(evidence.type);
     await checkReferencedPath(root, learnedRulesFile, evidence.path, errors);
@@ -194,11 +239,14 @@ function checkRuleLifecycle(rule, prefix, errors) {
     if (
       !promotion ||
       typeof promotion !== 'object' ||
+      Array.isArray(promotion) ||
       typeof promotion.approvedBy !== 'string' ||
       !promotion.approvedBy.trim() ||
       Number.isNaN(Date.parse(promotion.date))
     ) {
       errors.push(`${prefix} active rules require promotion approval and date.`);
+    } else {
+      checkAllowedFields(promotion, promotionFields, `${prefix} promotion`, errors);
     }
   }
   if (
@@ -215,6 +263,7 @@ async function checkRule(root, rule, index, ids, byState, errors) {
     errors.push(`${prefix} must be an object.`);
     return;
   }
+  checkAllowedFields(rule, ruleFields, prefix, errors);
   checkRuleIdentity(rule, prefix, ids, byState, errors);
   checkRuleScope(rule, prefix, errors);
   await checkEvidence(root, rule, prefix, errors);
@@ -246,6 +295,7 @@ async function parseLearnedRuleCorpus(root, errors) {
 
 async function discoverMarkdown(root, directory, suffix, errors) {
   const base = resolve(root, directory);
+  if (!(await assertContainedDirectory(root, directory, errors))) return [];
   let entries;
   try {
     entries = await readdir(base, { withFileTypes: true });
@@ -330,6 +380,8 @@ export async function checkAgentCorpus(targetRoot = repositoryRoot) {
 export async function readActiveLearnedRules(targetRoot = repositoryRoot) {
   const errors = [];
   const root = await realpath(targetRoot);
+  await assertContainedFile(root, learnedRulesFile, errors);
+  if (errors.length) throw new Error(errors.join('\n'));
   const learnedRules = await parseLearnedRuleCorpus(root, errors);
   if (errors.length) throw new Error(errors.join('\n'));
   return learnedRules.activeRules.map((rule) => ({

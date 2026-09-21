@@ -82,8 +82,8 @@ npm run check
 npm run build
 ```
 
-`check` runs lint, formatting verification, TypeScript checking, local tests, and the documentation
-contract check. `build` type-checks and produces the Electron bundles in `out`.
+`check` runs lint, formatting verification, TypeScript checking, local tests, the documentation
+contract check, and the agent instruction corpus check. `build` type-checks and produces the Electron bundles in `out`.
 `npm run validate` combines both. These checks do not require AI provider credentials or make live
 agent requests; passing them does not prove native terminal behavior or provider compatibility.
 Optional `npm run test:coverage` adds Node's built-in coverage reporting for modules loaded by the

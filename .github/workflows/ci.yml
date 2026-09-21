@@ -59,10 +59,7 @@ jobs:
 
       - name: Regression tests and machine-readable coverage
         id: tests
-        shell: bash
-        run: |
-          npm test
-          npm run test:ci
+        run: npm run test:ci
 
       - name: Fail on stale documentation contracts
         id: docs

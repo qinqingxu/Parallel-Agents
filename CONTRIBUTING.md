@@ -89,12 +89,12 @@ evidence verification; they cannot install, publish, run arbitrary commands, or 
 | `npm run hooks:install`     | Preview opt-in local hook setup; mutation requires explicit `--apply`                       |
 | `npm run maintenance:check` | Inspect bounded non-runtime formatting drift without repair                                 |
 | `npm run maintenance:apply` | Explicit clean-tree formatting repair with validation, rollback, and optional new artifacts |
-| `npm run check`             | Run lint, format checking, type checking, tests, and documentation checks                   |
+| `npm run check`             | Run lint, format checking, type checking, tests, documentation, and agent-corpus checks     |
 | `npm run build`             | Run type checking, then electron-vite build into `out`                                      |
 | `npm run validate`          | Run `check` followed by `build`                                                             |
 
 Start with the smallest relevant test command. Use `npm run check` for the complete local
-static/type/test/docs gate, and `npm run validate` when bundle validation is also needed.
+static/type/test/docs/agent-corpus gate, and `npm run validate` when bundle validation is also needed.
 There is no requirement to package or publish an ordinary documentation or regression fix.
 These local commands do not establish that remote CI ran or that branch protection is configured.
 
