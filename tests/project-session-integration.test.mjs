@@ -9,6 +9,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 async function backend(home) {
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'pa-project-backend-bundle-'));
+  const outputFile = join(outputDirectory, 'backend.cjs');
   const result = await build({
     stdin: {
       contents: "export * from './src/main/projects.ts'; export * from './src/main/sessions.ts';",
@@ -36,13 +38,13 @@ async function backend(home) {
       },
     ],
   });
-  const module = { exports: {} };
-  new Function('require', 'module', 'exports', result.outputFiles[0].text)(
-    createRequire(import.meta.url),
-    module,
-    module.exports,
-  );
-  return module.exports;
+  await writeFile(outputFile, result.outputFiles[0].text, 'utf8');
+  const bundledRequire = createRequire(outputFile);
+  try {
+    return bundledRequire(outputFile);
+  } finally {
+    await rm(outputDirectory, { recursive: true, force: true });
+  }
 }
 
 test('new project survives restart, discovers history under stable ID, and renames persist', async (t) => {

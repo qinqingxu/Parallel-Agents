@@ -83,6 +83,40 @@ test('creates a sibling worktree with spaces, defaults to HEAD, and leaves dirty
   assert.equal(await readFile(join(options.basePath, 'untracked.txt'), 'utf8'), 'untracked\n');
 });
 
+test('clears inherited repository-local Git environment while creating a worktree', async (t) => {
+  const options = await fixture(t);
+  const other = join(options.root, 'other repo');
+  await mkdir(other);
+  await git(other, 'init', '-b', 'main');
+  await git(other, 'config', 'user.name', 'Worktree Test');
+  await git(other, 'config', 'user.email', 'worktree-test@example.invalid');
+  await writeFile(join(other, 'other.txt'), 'other\n');
+  await git(other, 'add', 'other.txt');
+  await git(other, 'commit', '-m', 'Other commit');
+  const original = {
+    GIT_DIR: process.env.GIT_DIR,
+    GIT_WORK_TREE: process.env.GIT_WORK_TREE,
+    GIT_INDEX_FILE: process.env.GIT_INDEX_FILE,
+  };
+  process.env.GIT_DIR = join(other, '.git');
+  process.env.GIT_WORK_TREE = other;
+  process.env.GIT_INDEX_FILE = join(other, '.git', 'index');
+  let actualPath;
+  try {
+    actualPath = await createProjectWorktree(options);
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+  assert.equal(await git(actualPath, 'branch', '--show-current'), options.branch);
+  assert.equal(
+    normalize(await git(actualPath, 'rev-parse', '--show-toplevel')),
+    normalize(actualPath),
+  );
+});
+
 test('uses the exact requested commit ref rather than the current HEAD', async (t) => {
   const options = await fixture(t);
   const first = await git(options.basePath, 'rev-parse', 'HEAD');

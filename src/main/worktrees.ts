@@ -4,11 +4,28 @@ import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep 
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
+const repositoryGitEnvironmentKeys = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_NAMESPACE',
+];
+
+function gitEnvironment(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of repositoryGitEnvironmentKeys) delete env[key];
+  return env;
+}
 
 async function git(basePath: string, args: string[], context: string): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', ['-C', basePath, ...args], {
+      env: gitEnvironment(),
       maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
     });
     return stdout.trim();
   } catch (error) {

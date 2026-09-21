@@ -13,6 +13,34 @@ interface Preferences {
   projects: RegisteredProject[];
 }
 
+const agentIds = new Set<AgentId>(['claude', 'codex', 'gemini', 'aider', 'copilot']);
+
+function validateRegisteredProject(value: unknown): RegisteredProject {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid registered project.');
+  }
+  const project = value as Partial<RegisteredProject>;
+  if (
+    typeof project.id !== 'string' ||
+    !project.id ||
+    typeof project.realPath !== 'string' ||
+    !project.realPath ||
+    typeof project.agent !== 'string' ||
+    !agentIds.has(project.agent)
+  ) {
+    throw new Error('Invalid registered project.');
+  }
+  if (project.historyPath !== undefined && typeof project.historyPath !== 'string') {
+    throw new Error('Invalid registered project.');
+  }
+  return {
+    id: project.id,
+    agent: project.agent,
+    realPath: project.realPath,
+    ...(project.historyPath ? { historyPath: project.historyPath } : {}),
+  };
+}
+
 export class PreferencesStore {
   private pending: Promise<unknown> = Promise.resolve();
   private readonly path: string;
@@ -48,7 +76,7 @@ export class PreferencesStore {
     if (!Object.hasOwn(data, 'fontBold')) data.fontBold = false;
     if (typeof data.fontBold !== 'boolean') throw new Error('Font bold must be a boolean.');
     for (const name of Object.values(data.sessionNames)) validateSessionName(name);
-    return data;
+    return { ...data, projects: data.projects.map(validateRegisteredProject) };
   }
 
   private update(change: (data: Preferences) => Preferences): Promise<void> {
@@ -92,9 +120,10 @@ export class PreferencesStore {
   }
 
   registerProject(project: RegisteredProject): Promise<void> {
+    const registered = validateRegisteredProject(project);
     return this.update((data) => ({
       ...data,
-      projects: [...data.projects.filter((p) => p.id !== project.id), project],
+      projects: [...data.projects.filter((p) => p.id !== registered.id), registered],
     }));
   }
 

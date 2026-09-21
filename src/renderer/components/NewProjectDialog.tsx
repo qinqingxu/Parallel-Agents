@@ -9,6 +9,7 @@ export function NewProjectDialog({ agent, onClose }: { agent: AgentId; onClose: 
   const [mode, setMode] = useState<'folder' | 'worktree'>('folder');
   const [basePath, setBasePath] = useState('');
   const [targetPath, setTargetPath] = useState('');
+  const [targetPathGenerated, setTargetPathGenerated] = useState(true);
   const [branch, setBranch] = useState('');
   const [startPoint, setStartPoint] = useState('HEAD');
   const [busy, setBusy] = useState(false);
@@ -20,10 +21,26 @@ export function NewProjectDialog({ agent, onClose }: { agent: AgentId; onClose: 
   async function browse() {
     try {
       const folder = await window.api.dialog.pickDirectory();
-      if (folder) setBasePath(folder);
+      if (folder) updateBasePath(folder);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function defaultTargetPath(base: string, name: string) {
+    if (!base || !name) return '';
+    const separator = base.includes('\\') ? '\\' : '/';
+    return `${base}.worktrees${separator}${name.replace(/[\\/]/g, '-')}`;
+  }
+
+  function updateBasePath(path: string) {
+    setBasePath(path);
+    if (targetPathGenerated && branch) setTargetPath(defaultTargetPath(path, branch));
+  }
+
+  function updateBranch(name: string) {
+    setBranch(name);
+    if (targetPathGenerated) setTargetPath(defaultTargetPath(basePath, name));
   }
 
   return (
@@ -71,7 +88,7 @@ export function NewProjectDialog({ agent, onClose }: { agent: AgentId; onClose: 
               value={basePath}
               disabled={busy}
               required
-              onChange={(e) => setBasePath(e.target.value)}
+              onChange={(e) => updateBasePath(e.target.value)}
             />
             <button
               type="button"
@@ -92,20 +109,7 @@ export function NewProjectDialog({ agent, onClose }: { agent: AgentId; onClose: 
                 disabled={busy}
                 required
                 placeholder="feature/my-task"
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setBranch(name);
-                  const separator = basePath.includes('\\') ? '\\' : '/';
-                  if (
-                    !targetPath ||
-                    targetPath ===
-                      `${basePath}.worktrees${separator}${branch.replace(/[\\/]/g, '-')}`
-                  ) {
-                    setTargetPath(
-                      `${basePath}.worktrees${separator}${name.replace(/[\\/]/g, '-')}`,
-                    );
-                  }
-                }}
+                onChange={(e) => updateBranch(e.target.value)}
               />
             </label>
             <label className="workflow-field">
@@ -123,7 +127,10 @@ export function NewProjectDialog({ agent, onClose }: { agent: AgentId; onClose: 
                 value={targetPath}
                 disabled={busy}
                 required
-                onChange={(e) => setTargetPath(e.target.value)}
+                onChange={(e) => {
+                  setTargetPathGenerated(false);
+                  setTargetPath(e.target.value);
+                }}
               />
             </label>
             <p>

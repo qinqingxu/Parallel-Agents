@@ -41,6 +41,38 @@ test('invalid stored JSON surfaces an error instead of overwriting preferences',
   await assert.rejects(new PreferencesStore(path).setFontSize(16), SyntaxError);
 });
 
+test('invalid registered projects reject without poisoning later writes', async (t) => {
+  const dir = await mkdtemp(join(process.cwd(), '.pa-preferences-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const path = join(dir, 'preferences.json');
+  const store = new PreferencesStore(path);
+  const valid = {
+    sessionNames: {},
+    fontSize: 14,
+    fontBold: false,
+    projects: [{ id: 'codex:manual:test', agent: 'codex', realPath: dir }],
+  };
+  await writeFile(path, JSON.stringify({ ...valid, projects: [null] }));
+  await assert.rejects(store.read(), /registered project/i);
+  await assert.rejects(store.setFontSize(16), /registered project/i);
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')).projects, [null]);
+
+  for (const project of [
+    {},
+    { id: '', agent: 'codex', realPath: dir },
+    { id: 'bad-agent', agent: 'unknown', realPath: dir },
+    { id: 'bad-path', agent: 'codex', realPath: '' },
+    { id: 'bad-history', agent: 'codex', realPath: dir, historyPath: 1 },
+  ]) {
+    assert.throws(() => store.registerProject(project), /registered project/i);
+  }
+
+  await writeFile(path, JSON.stringify(valid));
+  const recovered = new PreferencesStore(path);
+  await recovered.registerProject({ id: 'copilot:manual:test', agent: 'copilot', realPath: dir });
+  assert.equal((await recovered.read()).projects.length, 2);
+});
+
 test('legacy preferences default bold off and preserve existing settings when migrated', async (t) => {
   const dir = await mkdtemp(join(process.cwd(), '.pa-preferences-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
