@@ -1,4 +1,14 @@
-import { mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import {
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 const excludedRoots = new Set([
@@ -50,6 +60,47 @@ export function documentationContractMarkdown(files) {
     ...activeFiles.map((file) => `- \`${file}\``),
     '',
   ].join('\n');
+}
+
+async function writeDocumentationContract(root, content) {
+  const path = resolve(root, documentationContractFile);
+  const parent = dirname(path);
+  await mkdir(parent, { recursive: true });
+  const parentInfo = await lstat(parent);
+  if (parentInfo.isSymbolicLink() || !parentInfo.isDirectory()) {
+    throw new Error(`${documentationContractFile}: parent directory must be a real directory.`);
+  }
+  const canonicalParent = await realpath(parent);
+  if (outsideRoot(root, canonicalParent)) {
+    throw new Error(
+      `${documentationContractFile}: parent directory resolves outside the repository.`,
+    );
+  }
+  try {
+    const existing = await lstat(path);
+    if (existing.isSymbolicLink()) {
+      throw new Error(`${documentationContractFile}: refusing to replace a symbolic link.`);
+    }
+    if (!existing.isFile()) {
+      throw new Error(`${documentationContractFile}: expected a regular file.`);
+    }
+    if (existing.nlink > 1) {
+      throw new Error(`${documentationContractFile}: refusing to replace a hard-linked file.`);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const temporary = resolve(parent, `.documentation-contracts.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx' });
+    await rename(temporary, path);
+  } catch (error) {
+    await unlink(temporary).catch((cleanup) => {
+      if (cleanup.code !== 'ENOENT')
+        console.error('Documentation contract cleanup failed:', cleanup);
+    });
+    throw error;
+  }
 }
 
 async function readText(root, file) {
@@ -344,8 +395,7 @@ if (import.meta.main) {
       console.error(errors.join('\n'));
       process.exitCode = 1;
     } else if (mode === '--write-contract') {
-      await mkdir(dirname(contractPath), { recursive: true });
-      await writeFile(contractPath, contract, 'utf8');
+      await writeDocumentationContract(root, contract);
       console.log(`Wrote ${documentationContractFile} for ${files.length} active Markdown files.`);
     } else if (mode === '--check-contract') {
       let current;
