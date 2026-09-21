@@ -429,7 +429,7 @@ test('CLI checks and writes the documentation contract inventory', async (t) => 
   assert.match(stale.stderr, /documentation contract inventory is stale/i);
 });
 
-test('CLI refuses to write the documentation contract through linked targets', async (t) => {
+test('CLI refuses to read or write the documentation contract through linked targets', async (t) => {
   const root = await fixture(t, {
     'docs/target.md': '# Preserve target\n',
   });
@@ -439,6 +439,9 @@ test('CLI refuses to write the documentation contract through linked targets', a
     spawnSync(process.execPath, [checker, ...args], { cwd: root, encoding: 'utf8' });
 
   await link(target, contract);
+  const hardLinkCheck = run('--check-contract');
+  assert.equal(hardLinkCheck.status, 1);
+  assert.match(hardLinkCheck.stderr, /hard-linked/i);
   const hardLink = run('--write-contract');
   assert.equal(hardLink.status, 1);
   assert.match(hardLink.stderr, /hard-linked/i);
@@ -454,6 +457,9 @@ test('CLI refuses to write the documentation contract through linked targets', a
     }
     throw error;
   }
+  const symbolicLinkCheck = run('--check-contract');
+  assert.equal(symbolicLinkCheck.status, 1);
+  assert.match(symbolicLinkCheck.stderr, /symbolic link/i);
   const symbolicLink = run('--write-contract');
   assert.equal(symbolicLink.status, 1);
   assert.match(symbolicLink.stderr, /symbolic link/i);

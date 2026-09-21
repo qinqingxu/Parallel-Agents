@@ -62,11 +62,17 @@ export function documentationContractMarkdown(files) {
   ].join('\n');
 }
 
-async function writeDocumentationContract(root, content) {
+async function inspectDocumentationContractPath(root, { createParent = false } = {}) {
   const path = resolve(root, documentationContractFile);
   const parent = dirname(path);
-  await mkdir(parent, { recursive: true });
-  const parentInfo = await lstat(parent);
+  if (createParent) await mkdir(parent, { recursive: true });
+  let parentInfo;
+  try {
+    parentInfo = await lstat(parent);
+  } catch (error) {
+    if (error.code === 'ENOENT') return { path, exists: false };
+    throw error;
+  }
   if (parentInfo.isSymbolicLink() || !parentInfo.isDirectory()) {
     throw new Error(`${documentationContractFile}: parent directory must be a real directory.`);
   }
@@ -76,20 +82,32 @@ async function writeDocumentationContract(root, content) {
       `${documentationContractFile}: parent directory resolves outside the repository.`,
     );
   }
+  let existing;
   try {
-    const existing = await lstat(path);
-    if (existing.isSymbolicLink()) {
-      throw new Error(`${documentationContractFile}: refusing to replace a symbolic link.`);
-    }
-    if (!existing.isFile()) {
-      throw new Error(`${documentationContractFile}: expected a regular file.`);
-    }
-    if (existing.nlink > 1) {
-      throw new Error(`${documentationContractFile}: refusing to replace a hard-linked file.`);
-    }
+    existing = await lstat(path);
   } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
+    if (error.code === 'ENOENT') return { path, exists: false };
+    throw error;
   }
+  if (existing.isSymbolicLink()) {
+    throw new Error(`${documentationContractFile}: refusing to use a symbolic link.`);
+  }
+  if (!existing.isFile()) {
+    throw new Error(`${documentationContractFile}: expected a regular file.`);
+  }
+  if (existing.nlink > 1) {
+    throw new Error(`${documentationContractFile}: refusing to use a hard-linked file.`);
+  }
+  const canonicalFile = await realpath(path);
+  if (outsideRoot(root, canonicalFile)) {
+    throw new Error(`${documentationContractFile}: file resolves outside the repository.`);
+  }
+  return { path, exists: true };
+}
+
+async function writeDocumentationContract(root, content) {
+  const { path } = await inspectDocumentationContractPath(root, { createParent: true });
+  const parent = dirname(path);
   const temporary = resolve(parent, `.documentation-contracts.${process.pid}.${randomUUID()}.tmp`);
   try {
     await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx' });
@@ -389,7 +407,6 @@ if (import.meta.main) {
       );
     }
     const root = await realpath(process.cwd());
-    const contractPath = resolve(root, documentationContractFile);
     const { files, contract, errors } = await checkDocs(root);
     if (errors.length) {
       console.error(errors.join('\n'));
@@ -400,6 +417,8 @@ if (import.meta.main) {
     } else if (mode === '--check-contract') {
       let current;
       try {
+        const { path: contractPath, exists } = await inspectDocumentationContractPath(root);
+        if (!exists) throw Object.assign(new Error('missing contract'), { code: 'ENOENT' });
         current = await readFile(contractPath, 'utf8');
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
