@@ -20,6 +20,7 @@ export function validationEnvironment(source = process.env) {
     'TMP',
     'LANG',
     'LC_ALL',
+    'PARALLEL_AGENTS_MAINTENANCE_LOOP',
   ]);
   const env = Object.fromEntries(
     Object.entries(source).filter(
