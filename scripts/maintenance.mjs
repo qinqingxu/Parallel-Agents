@@ -36,7 +36,7 @@ embedded-language formatting are not executed. Git and .prettierignore are evalu
 independently; exclusion by either wins, regardless of negations in the other.
 No commit, stash, reset, clean, install, push, pull request, merge or publication capability.
 Validation runs trusted checkout scripts; this is not a sandbox for untrusted npm scripts.
-Limits: 128 candidates, 256 KiB each/4 MiB total; formatter 15 s; npm check 120 s/
+Limits: 128 candidates, 256 KiB each/4 MiB total; formatter 15 s; npm check 180 s/
 1 MiB output plus at most 3 s termination grace. Git: 10 s/2 MiB/10,000 inventory entries.
 Protected-input fingerprints: 16 MiB/file, 128 MiB total, excluding unreadable policy scope.
 Failure restores only the driver's own still-matching writes; concurrent edits survive.

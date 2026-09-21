@@ -48,7 +48,7 @@ Positive: real formatter failure -> clean disposable commit -> native maintenanc
 and one repair -> actual npm run check passes -> exact document diff and protected hashes.
 Negative: actual docs-contract validation fails the deliberately invalid docs command even
 when formatted -> introduce drift -> native check failure -> owned byte-exact rollback.
-The existing maintenance driver and its 120-second validation limit are unchanged. Each native
+The existing maintenance driver and its 180-second validation limit are unchanged. Each native
 maintenance subprocess gets a 240-second hosted-runner budget inside the 540-second total verifier
 deadline.
 

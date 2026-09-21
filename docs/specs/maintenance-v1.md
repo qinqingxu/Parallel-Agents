@@ -30,7 +30,7 @@ An optional `.github/maintenance.json` with `version: 1`, `include`, and `exclud
 the hard boundary but cannot widen it.
 
 Limits include 128 candidates, 256 KiB per candidate, 4 MiB total candidate data, one repair
-pass, 15-second formatting, and 120-second validation with bounded output and termination grace.
+pass, 15-second formatting, and 180-second validation with bounded output and termination grace.
 Git inventory and protected-input fingerprinting also have explicit budgets reported in the receipt.
 Unsupported executable Prettier configurations/plugins are refused, and embedded-language
 formatting is disabled. Validation runs trusted repository scripts; this is not an arbitrary-code sandbox.

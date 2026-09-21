@@ -76,7 +76,7 @@ test('CLI exposes only the fixed local loop and help, never arbitrary commands o
     assert.throws(() => parseArgs(args), /argument/i);
   }
   assert.match(HELP, /local.fixture/i);
-  assert.match(HELP, /120/);
+  assert.match(HELP, /180/);
   assert.match(HELP, /no.*install/i);
   assert.ok(LOOP_LIMITS.totalTimeoutMs + 3_000 < 600_000);
 });
@@ -629,7 +629,7 @@ function driverReceipt(phase) {
       conflictPaths: [],
     },
     errors: negative ? [{ code: 'validation-failed' }] : [],
-    limits: { validationTimeoutMs: 120_000 },
+    limits: { validationTimeoutMs: 180_000 },
   };
 }
 
@@ -658,7 +658,7 @@ test('receipt contract requires actual validation, exact writes, nonempty protec
         receipt.errors.push({ code: 'concurrent-edit' });
       },
       (receipt) => {
-        receipt.limits.validationTimeoutMs = 180_000;
+        receipt.limits.validationTimeoutMs = 240_000;
       },
     ];
     if (phase !== 'detect') {

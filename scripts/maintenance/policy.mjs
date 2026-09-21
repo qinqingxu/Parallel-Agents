@@ -11,7 +11,7 @@ export const LIMITS = Object.freeze({
   maxConfigBytes: 32 * 1024,
   gitTimeoutMs: 10_000,
   formattingTimeoutMs: 15_000,
-  validationTimeoutMs: 120_000,
+  validationTimeoutMs: 180_000,
   maxValidationOutputBytes: 1024 * 1024,
 });
 

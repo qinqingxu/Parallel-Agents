@@ -144,6 +144,14 @@ export async function runWorker(sourceRoot, relativeRun) {
       const formatted = Buffer.from(formattedDocument + suffix);
       const raw = Buffer.from(rawDocument + suffix.replaceAll('\n', '\r\n'));
       const doc = await writeNew(root, fixturePath, negative ? formatted : raw);
+      if (!negative) {
+        await commands.run(
+          'positive-refresh-docs-contract',
+          process.execPath,
+          ['scripts/check-docs.mjs', '--write-contract'],
+          { cwd: root },
+        );
+      }
       if (negative) {
         const unfixable = await commands.run(
           'negative-docs-contract',

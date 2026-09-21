@@ -52,7 +52,7 @@ claiming that scratch was never created. Unverified or concurrently changed scra
 
 The supervised worker has a 540-second total bound and at most 128 sequential direct commands.
 Each native maintenance subprocess has a 240-second hosted-runner budget, while the nested native
-maintenance validation limit remains 120 seconds. There is no automatic retry loop, scope widening,
+maintenance validation limit remains 180 seconds. There is no automatic retry loop, scope widening,
 forced rollback over concurrent edits, source checkout repair, commit, or publication.
 The full verifier refuses non-Windows hosts because the existing process-group model cannot safely
 terminate every nested detached validation group there.
