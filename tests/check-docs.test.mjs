@@ -431,10 +431,11 @@ test('CLI checks and writes the documentation contract inventory', async (t) => 
 
 test('CLI refuses to read or write the documentation contract through linked targets', async (t) => {
   const root = await fixture(t, {
-    'docs/target.md': '# Preserve target\n',
+    'docs/guide.md': '# Guide\n',
+    'reports/target.md': '`npm run removed-from-excluded-target`\n',
   });
   const contract = join(root, 'docs', 'documentation-contracts.md');
-  const target = join(root, 'docs', 'target.md');
+  const target = join(root, 'reports', 'target.md');
   const run = (...args) =>
     spawnSync(process.execPath, [checker, ...args], { cwd: root, encoding: 'utf8' });
 
@@ -442,10 +443,11 @@ test('CLI refuses to read or write the documentation contract through linked tar
   const hardLinkCheck = run('--check-contract');
   assert.equal(hardLinkCheck.status, 1);
   assert.match(hardLinkCheck.stderr, /hard-linked/i);
+  assert.doesNotMatch(hardLinkCheck.stderr, /removed-from-excluded-target/);
   const hardLink = run('--write-contract');
   assert.equal(hardLink.status, 1);
   assert.match(hardLink.stderr, /hard-linked/i);
-  assert.equal(await readFile(target, 'utf8'), '# Preserve target\n');
+  assert.equal(await readFile(target, 'utf8'), '`npm run removed-from-excluded-target`\n');
 
   await unlink(contract);
   try {
@@ -463,7 +465,7 @@ test('CLI refuses to read or write the documentation contract through linked tar
   const symbolicLink = run('--write-contract');
   assert.equal(symbolicLink.status, 1);
   assert.match(symbolicLink.stderr, /symbolic link/i);
-  assert.equal(await readFile(target, 'utf8'), '# Preserve target\n');
+  assert.equal(await readFile(target, 'utf8'), '`npm run removed-from-excluded-target`\n');
 });
 
 test('CLI reports operational failures rather than swallowing malformed manifests', async (t) => {

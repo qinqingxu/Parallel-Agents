@@ -407,6 +407,9 @@ if (import.meta.main) {
       );
     }
     const root = await realpath(process.cwd());
+    const contractInspection = mode
+      ? await inspectDocumentationContractPath(root, { createParent: false })
+      : null;
     const { files, contract, errors } = await checkDocs(root);
     if (errors.length) {
       console.error(errors.join('\n'));
@@ -417,9 +420,10 @@ if (import.meta.main) {
     } else if (mode === '--check-contract') {
       let current;
       try {
-        const { path: contractPath, exists } = await inspectDocumentationContractPath(root);
-        if (!exists) throw Object.assign(new Error('missing contract'), { code: 'ENOENT' });
-        current = await readFile(contractPath, 'utf8');
+        if (!contractInspection?.exists) {
+          throw Object.assign(new Error('missing contract'), { code: 'ENOENT' });
+        }
+        current = await readFile(contractInspection.path, 'utf8');
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
