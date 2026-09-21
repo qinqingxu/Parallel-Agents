@@ -5,7 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { useAppStore } from '../store/app-store';
 import type { ThemeMode } from '../../shared/types';
 import type { SessionShellProfile } from '../../shared/session-terminals';
-import { TERMINAL_FONT_FAMILY } from '../../shared/typography';
+import { resolveFontFamily } from '../../shared/typography';
 
 interface Props {
   terminalKey: string;
@@ -48,6 +48,7 @@ export function TerminalPane({
   const multilineEnter = useAppStore((s) => s.terminalMultilineEnter);
   const copyPaste = useAppStore((s) => s.terminalCopyPaste);
   const fontSize = useAppStore((s) => s.fontSize);
+  const fontFamily = useAppStore((s) => s.fontFamily);
   const fontBold = useAppStore((s) => s.fontBold);
   const multilineRef = useRef(multilineEnter);
   const copyPasteRef = useRef(copyPaste);
@@ -64,7 +65,7 @@ export function TerminalPane({
     if (!containerRef.current) return;
 
     const term = new Terminal({
-      fontFamily: TERMINAL_FONT_FAMILY,
+      fontFamily: resolveFontFamily(useAppStore.getState().fontFamily),
       fontSize: useAppStore.getState().fontSize,
       fontWeight: useAppStore.getState().fontBold ? 700 : 400,
       fontWeightBold: 700,
@@ -185,12 +186,13 @@ export function TerminalPane({
     const term = termRef.current;
     if (!term) return;
     term.options.fontSize = fontSize;
+    term.options.fontFamily = resolveFontFamily(fontFamily);
     term.options.fontWeight = fontBold ? 700 : 400;
     if (visible) {
       fitRef.current?.fit();
       void window.api.pty.resize(terminalKey, term.cols, term.rows);
     }
-  }, [fontSize, fontBold, visible, terminalKey]);
+  }, [fontSize, fontFamily, fontBold, visible, terminalKey]);
 
   function onContextMenu(e: React.MouseEvent) {
     if (!copyPasteRef.current) return;

@@ -29,7 +29,7 @@ Launching an agent uses that CLI's own installation, authentication, and permiss
 - **Git panel** for status, staging, unstaging, discarding, commits, and read-only Monaco diffs
   using locally bundled editor assets loaded on demand.
 - **Configurable layout and typography**, including six column orders, saved pane sizes,
-  dark/light themes, and persisted font size/bold settings.
+  dark/light themes, and persisted font size, family, and bold settings.
 - **Automatic updates** for installed Windows builds, with explicit restart confirmation.
 - **Tray lifecycle**: closing the window hides it; use the tray's Quit action to exit. F11 toggles fullscreen.
 

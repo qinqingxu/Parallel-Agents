@@ -226,6 +226,21 @@ button.ctx-menu-item {
   gap: 12px;
   margin: 12px 0;
 }
+.font-family-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.font-family-field select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 5px;
+  font: inherit;
+}
 .font-bold-toggle {
   display: flex;
   align-items: center;

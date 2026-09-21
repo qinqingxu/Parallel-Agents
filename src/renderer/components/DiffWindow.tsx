@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import type { GitDiff } from '../../shared/types';
-import { TERMINAL_FONT_FAMILY } from '../../shared/typography';
+import { resolveFontFamily } from '../../shared/typography';
 
 const DiffEditor = lazy(async () => {
   const [mod, { monaco }] = await Promise.all([
@@ -54,6 +54,7 @@ export function DiffWindow({ repoPath, filePath, staged, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const themeMode = useAppStore((s) => s.theme);
   const fontSize = useAppStore((s) => s.fontSize);
+  const fontFamily = useAppStore((s) => s.fontFamily);
   const fontBold = useAppStore((s) => s.fontBold);
 
   useEffect(() => {
@@ -117,7 +118,7 @@ export function DiffWindow({ repoPath, filePath, staged, onClose }: Props) {
                   minimap: { enabled: false },
                   fontSize,
                   fontWeight: fontBold ? '700' : '400',
-                  fontFamily: TERMINAL_FONT_FAMILY,
+                  fontFamily: resolveFontFamily(fontFamily),
                   scrollBeyondLastLine: false,
                 }}
               />

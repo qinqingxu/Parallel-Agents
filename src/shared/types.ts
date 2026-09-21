@@ -192,6 +192,8 @@ export interface Api {
   config: {
     getFontSize(): Promise<number>;
     setFontSize(size: number): Promise<void>;
+    getFontFamily(): Promise<string>;
+    setFontFamily(fontFamily: string): Promise<void>;
     getFontBold(): Promise<boolean>;
     setFontBold(bold: boolean): Promise<void>;
     getLastAgent(projectId: string): Promise<AgentId | null>;

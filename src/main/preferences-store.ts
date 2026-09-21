@@ -3,12 +3,19 @@ import { dirname, join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { validateSessionName } from '../shared/session-presentation.ts';
-import { DEFAULT_FONT_SIZE, validateFontSize } from '../shared/typography.ts';
+import {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_SIZE,
+  validateFontFamily,
+  validateFontSize,
+  type FontFamilyId,
+} from '../shared/typography.ts';
 import type { AgentId, RegisteredProject } from '../shared/types.ts';
 
 interface Preferences {
   sessionNames: Record<string, string>;
   fontSize: number;
+  fontFamily: FontFamilyId;
   fontBold: boolean;
   projects: RegisteredProject[];
 }
@@ -60,7 +67,13 @@ export class PreferencesStore {
       text = await readFile(this.path, 'utf-8');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      return { sessionNames: {}, fontSize: DEFAULT_FONT_SIZE, fontBold: false, projects: [] };
+      return {
+        sessionNames: {},
+        fontSize: DEFAULT_FONT_SIZE,
+        fontFamily: DEFAULT_FONT_FAMILY,
+        fontBold: false,
+        projects: [],
+      };
     }
     const data: Preferences = JSON.parse(text);
     if (
@@ -73,6 +86,8 @@ export class PreferencesStore {
       throw new Error('Invalid application preferences.');
     }
     validateFontSize(data.fontSize);
+    if (!Object.hasOwn(data, 'fontFamily')) data.fontFamily = DEFAULT_FONT_FAMILY;
+    data.fontFamily = validateFontFamily(data.fontFamily);
     if (!Object.hasOwn(data, 'fontBold')) data.fontBold = false;
     if (typeof data.fontBold !== 'boolean') throw new Error('Font bold must be a boolean.');
     for (const name of Object.values(data.sessionNames)) validateSessionName(name);
@@ -112,6 +127,11 @@ export class PreferencesStore {
   async setFontSize(size: number): Promise<void> {
     validateFontSize(size);
     await this.update((data) => ({ ...data, fontSize: size }));
+  }
+
+  async setFontFamily(fontFamily: string): Promise<void> {
+    const next = validateFontFamily(fontFamily);
+    await this.update((data) => ({ ...data, fontFamily: next }));
   }
 
   async setFontBold(bold: boolean): Promise<void> {

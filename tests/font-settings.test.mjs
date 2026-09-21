@@ -53,14 +53,22 @@ async function createStore(config) {
 
 test('bold loads from saved settings and changes only after successful persistence', async () => {
   let saved = true;
+  let savedFamily = 'cascadia-mono';
   let fail = false;
   let calls = 0;
+  let familyCalls = 0;
   const { store, styles } = await createStore({
     getFontSize: async () => 18,
+    getFontFamily: async () => savedFamily,
     getFontBold: async () => saved,
     getConfirmOnCloseTab: async () => true,
     getTerminalMultilineEnter: async () => true,
     getTerminalCopyPaste: async () => true,
+    setFontFamily: async (value) => {
+      familyCalls++;
+      if (fail) throw new Error('Write failed');
+      savedFamily = value;
+    },
     setFontBold: async (value) => {
       calls++;
       if (fail) throw new Error('Write failed');
@@ -70,8 +78,16 @@ test('bold loads from saved settings and changes only after successful persisten
   assert.equal(store.getState().fontBold, false);
   await store.getState().loadSettings();
   assert.equal(store.getState().fontBold, true);
+  assert.equal(store.getState().fontFamily, 'cascadia-mono');
   assert.equal(styles['--app-font-weight'], '700');
   assert.equal(styles['--app-font-size'], '18px');
+  await store.getState().setFontFamily('consolas');
+  assert.equal(store.getState().fontFamily, 'consolas');
+  fail = true;
+  await assert.rejects(store.getState().setFontFamily('monospace'), /Write failed/);
+  assert.equal(store.getState().fontFamily, 'consolas');
+  await assert.rejects(store.getState().setFontFamily('Comic Sans MS'), /Font family/);
+  fail = false;
   const pending = store.getState().setFontBold(false);
   assert.equal(store.getState().fontBold, true);
   await pending;
@@ -85,6 +101,7 @@ test('bold loads from saved settings and changes only after successful persisten
     await assert.rejects(store.getState().setFontBold(invalid), /boolean/);
   }
   assert.equal(calls, 2);
+  assert.equal(familyCalls, 2);
 });
 
 // Run component hooks across renders, with native terminal/editor boundaries mocked.
@@ -141,10 +158,20 @@ async function componentHarness(name, state, api = {}, dependencies = {}) {
       if (id === '../store/app-store') return { useAppStore };
       if (id === '../../shared/typography')
         return {
-          TERMINAL_FONT_FAMILY: 'monospace',
           DEFAULT_FONT_SIZE: 14,
+          DEFAULT_FONT_FAMILY: 'default',
           MIN_FONT_SIZE: 10,
           MAX_FONT_SIZE: 24,
+          FONT_FAMILY_OPTIONS: [
+            { id: 'default', label: 'Default monospace', family: 'resolved-default' },
+            { id: 'consolas', label: 'Consolas', family: 'resolved-consolas' },
+            { id: 'monospace', label: 'System monospace', family: 'resolved-monospace' },
+          ],
+          resolveFontFamily: (fontFamily) => `resolved-${fontFamily}`,
+          validateFontFamily: (fontFamily) => {
+            if (['default', 'consolas', 'monospace'].includes(fontFamily)) return fontFamily;
+            throw new Error('Font family must be one of: default, consolas, monospace.');
+          },
         };
       return dependencies[id] ?? require(id);
     },
@@ -182,7 +209,7 @@ test('terminal changes normal weight live without recreating PTY or changing ANS
   let fits = 0;
   let disposed = 0;
   let onData;
-  const state = { fontBold: false, fontSize: 14, theme: 'dark' };
+  const state = { fontBold: false, fontFamily: 'default', fontSize: 14, theme: 'dark' };
   const render = await componentHarness(
     'TerminalPane',
     state,
@@ -235,6 +262,7 @@ test('terminal changes normal weight live without recreating PTY or changing ANS
   const props = { terminalKey: 'session', cwd: 'C:\\repo', visible: true };
   render(props);
   const terminal = terminals[0];
+  assert.equal(terminal.options.fontFamily, 'resolved-default');
   assert.equal(terminal.options.fontWeight, 400);
   assert.equal(terminal.options.fontWeightBold, 700);
   for (const bold of [true, false]) {
@@ -243,6 +271,9 @@ test('terminal changes normal weight live without recreating PTY or changing ANS
     assert.equal(terminal.options.fontWeight, bold ? 700 : 400);
     assert.equal(terminal.options.fontWeightBold, 700);
   }
+  state.fontFamily = 'consolas';
+  render(props);
+  assert.equal(terminal.options.fontFamily, 'resolved-consolas');
   onData('session', '\x1b[1mANSI bold\x1b[0m');
   assert.deepEqual(terminal.written, ['\x1b[1mANSI bold\x1b[0m']);
   const beforeHidden = fits;
@@ -257,8 +288,8 @@ test('terminal changes normal weight live without recreating PTY or changing ANS
   assert.equal(disposed, 0);
 });
 
-test('Monaco options follow bold toggles without refetching the diff', async () => {
-  const state = { fontBold: false, fontSize: 14, theme: 'dark' };
+test('Monaco options follow typography settings without refetching the diff', async () => {
+  const state = { fontBold: false, fontFamily: 'default', fontSize: 14, theme: 'dark' };
   let requests = 0;
   const render = await componentHarness('DiffWindow', state, {
     git: {
@@ -276,19 +307,28 @@ test('Monaco options follow bold toggles without refetching the diff', async () 
     const editor = find(render(props), (node) => node.type === 'MockDiffEditor');
     assert.equal(editor.props.options.fontWeight, bold ? '700' : '400');
     assert.equal(editor.props.options.fontSize, 14);
+    assert.equal(editor.props.options.fontFamily, 'resolved-default');
   }
+  state.fontFamily = 'consolas';
+  const editor = find(render(props), (node) => node.type === 'MockDiffEditor');
+  assert.equal(editor.props.options.fontFamily, 'resolved-consolas');
   assert.equal(requests, 1);
 });
 
-test('font picker exposes a controlled bold toggle, disables writes and surfaces errors', async () => {
+test('font picker exposes controlled family and bold inputs, disables writes and surfaces errors', async () => {
   let reject;
-  let requested;
+  const requested = [];
   const state = {
     fontSize: 14,
+    fontFamily: 'default',
     fontBold: false,
     setFontSize: async () => {},
+    setFontFamily: (value) => {
+      requested.push(['family', value]);
+      return Promise.resolve();
+    },
     setFontBold: (value) => {
-      requested = value;
+      requested.push(['bold', value]);
       return new Promise((_resolve, fail) => {
         reject = fail;
       });
@@ -297,9 +337,14 @@ test('font picker exposes a controlled bold toggle, disables writes and surfaces
   const render = await componentHarness('FontSizePicker', state);
   find(render(), (node) => node.type === 'button').props.onClick();
   const checkbox = () => find(render(), (node) => node.type === 'input');
+  const select = () => find(render(), (node) => node.type === 'select');
+  assert.equal(select().props.value, 'default');
+  select().props.onChange({ target: { value: 'consolas' } });
+  assert.deepEqual(requested.pop(), ['family', 'consolas']);
   assert.equal(checkbox().props.checked, false);
   checkbox().props.onChange({ target: { checked: true } });
-  assert.equal(requested, true);
+  assert.deepEqual(requested.pop(), ['bold', true]);
+  assert.equal(select().props.disabled, true);
   assert.equal(checkbox().props.disabled, true);
   reject(new Error('Cannot save font setting'));
   await Promise.resolve();

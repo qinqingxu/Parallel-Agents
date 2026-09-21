@@ -10,11 +10,13 @@ test('names, font settings and registered projects persist without losing concur
   const path = join(dir, 'preferences.json');
   const store = new PreferencesStore(path);
   assert.equal((await store.read()).fontSize, 14);
+  assert.equal((await store.read()).fontFamily, 'default');
   assert.equal((await store.read()).fontBold, false);
   await Promise.all([
     store.renameSession('codex', 'same-id', '  Fix login  '),
     store.renameSession('copilot', 'same-id', 'Review API'),
     store.setFontSize(18),
+    store.setFontFamily('consolas'),
     store.setFontBold(true),
     store.registerProject({ id: 'codex:manual:test', agent: 'codex', realPath: dir }),
   ]);
@@ -23,6 +25,7 @@ test('names, font settings and registered projects persist without losing concur
   assert.equal(data.sessionNames['codex:same-id'], 'Fix login');
   assert.equal(data.sessionNames['copilot:same-id'], 'Review API');
   assert.equal(data.fontSize, 18);
+  assert.equal(data.fontFamily, 'consolas');
   assert.equal(data.fontBold, true);
   assert.equal(data.projects[0].realPath, dir);
   await assert.rejects(store.renameSession('codex', 'same-id', '  '), /name/i);
@@ -73,20 +76,51 @@ test('invalid registered projects reject without poisoning later writes', async 
   assert.equal((await recovered.read()).projects.length, 2);
 });
 
-test('legacy preferences default bold off and preserve existing settings when migrated', async (t) => {
+test('legacy preferences default typography options and preserve existing settings when migrated', async (t) => {
   const dir = await mkdtemp(join(process.cwd(), '.pa-preferences-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const path = join(dir, 'preferences.json');
   const legacy = { sessionNames: { 'codex:session': 'Existing name' }, fontSize: 20, projects: [] };
   await writeFile(path, JSON.stringify(legacy));
   const store = new PreferencesStore(path);
-  assert.deepEqual(await store.read(), { ...legacy, fontBold: false });
+  assert.deepEqual(await store.read(), { ...legacy, fontFamily: 'default', fontBold: false });
   await store.setFontSize(21);
   assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), {
     ...legacy,
     fontSize: 21,
+    fontFamily: 'default',
     fontBold: false,
   });
+});
+
+test('invalid font families reject without overwriting preferences or poisoning later writes', async (t) => {
+  const dir = await mkdtemp(join(process.cwd(), '.pa-preferences-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const path = join(dir, 'preferences.json');
+  const store = new PreferencesStore(path);
+  await store.setFontFamily('cascadia-mono');
+  const original = await readFile(path, 'utf8');
+  for (const invalid of [undefined, null, '', 'Comic Sans MS', 0, [], {}]) {
+    await assert.rejects(store.setFontFamily(invalid), /font family/i);
+    assert.equal(await readFile(path, 'utf8'), original);
+  }
+  for (const invalid of [null, '', 'Comic Sans MS', 0, [], {}]) {
+    const text = JSON.stringify({
+      sessionNames: {},
+      fontSize: 14,
+      fontFamily: invalid,
+      projects: [],
+      fontBold: false,
+    });
+    await writeFile(path, text);
+    await assert.rejects(store.read(), /font family/i);
+    await assert.rejects(store.setFontSize(18), /font family/i);
+    await assert.rejects(store.setFontFamily('default'), /font family/i);
+    assert.equal(await readFile(path, 'utf8'), text);
+  }
+  await writeFile(path, original);
+  await store.setFontFamily('monospace');
+  assert.equal((await store.read()).fontFamily, 'monospace');
 });
 
 test('invalid bold values reject without overwriting preferences or poisoning later writes', async (t) => {
@@ -104,6 +138,7 @@ test('invalid bold values reject without overwriting preferences or poisoning la
     const text = JSON.stringify({
       sessionNames: {},
       fontSize: 14,
+      fontFamily: 'default',
       projects: [],
       fontBold: invalid,
     });

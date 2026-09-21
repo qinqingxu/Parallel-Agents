@@ -149,6 +149,10 @@ export function registerIpc(win: BrowserWindow, updates: UpdateController) {
   ipcMain.handle('config:setTerminalCopyPaste', (_e, v: boolean) => setTerminalCopyPaste(v));
   ipcMain.handle('config:getFontSize', async () => (await preferences.read()).fontSize);
   ipcMain.handle('config:setFontSize', (_e, size: number) => preferences.setFontSize(size));
+  ipcMain.handle('config:getFontFamily', async () => (await preferences.read()).fontFamily);
+  ipcMain.handle('config:setFontFamily', (_e, fontFamily: string) =>
+    preferences.setFontFamily(fontFamily),
+  );
   ipcMain.handle('config:getFontBold', async () => (await preferences.read()).fontBold);
   ipcMain.handle('config:setFontBold', (_e, bold: boolean) => preferences.setFontBold(bold));
   ipcMain.handle('shell:list', () => discoverShells());

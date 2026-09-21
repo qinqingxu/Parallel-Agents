@@ -66,6 +66,8 @@ const api: Api = {
   config: {
     getFontSize: () => ipcRenderer.invoke('config:getFontSize'),
     setFontSize: (size) => ipcRenderer.invoke('config:setFontSize', size),
+    getFontFamily: () => ipcRenderer.invoke('config:getFontFamily'),
+    setFontFamily: (fontFamily) => ipcRenderer.invoke('config:setFontFamily', fontFamily),
     getFontBold: () => ipcRenderer.invoke('config:getFontBold'),
     setFontBold: (bold) => ipcRenderer.invoke('config:setFontBold', bold),
     getLastAgent: (projectId) => ipcRenderer.invoke('config:getLastAgent', projectId),

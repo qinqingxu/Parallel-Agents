@@ -10,7 +10,13 @@ import type {
   ThemeMode,
   NewProjectOptions,
 } from '../../shared/types.ts';
-import { DEFAULT_FONT_SIZE, validateFontSize } from '../../shared/typography.ts';
+import {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_SIZE,
+  validateFontFamily,
+  validateFontSize,
+  type FontFamilyId,
+} from '../../shared/typography.ts';
 import { startCommandFor, resumeCommandFor, extraPathFor } from '../../shared/agent-commands.ts';
 import { pickDeletableMissingProjectIds } from './project-cleanup.ts';
 import {
@@ -77,6 +83,7 @@ interface AppState {
   terminalMultilineEnter: boolean;
   terminalCopyPaste: boolean;
   fontSize: number;
+  fontFamily: FontFamilyId;
   fontBold: boolean;
 
   loadProjects: () => Promise<void>;
@@ -112,6 +119,7 @@ interface AppState {
   renameSession: (projectId: string, sessionId: string, title: string) => Promise<void>;
   createProject: (options: NewProjectOptions) => Promise<void>;
   setFontSize: (size: number) => Promise<void>;
+  setFontFamily: (fontFamily: string) => Promise<void>;
   setFontBold: (bold: boolean) => Promise<void>;
   consumePendingCommand: (projectId: string) => PendingLaunch | undefined;
   findProject: (id: string) => Project | undefined;
@@ -187,6 +195,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   terminalMultilineEnter: true,
   terminalCopyPaste: true,
   fontSize: DEFAULT_FONT_SIZE,
+  fontFamily: DEFAULT_FONT_FAMILY,
   fontBold: false,
 
   async loadProjects() {
@@ -679,17 +688,32 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async loadSettings() {
-    const [confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste, fontSize, fontBold] =
-      await Promise.all([
-        window.api.config.getConfirmOnCloseTab(),
-        window.api.config.getTerminalMultilineEnter(),
-        window.api.config.getTerminalCopyPaste(),
-        window.api.config.getFontSize(),
-        window.api.config.getFontBold(),
-      ]);
+    const [
+      confirmOnCloseTab,
+      terminalMultilineEnter,
+      terminalCopyPaste,
+      fontSize,
+      fontFamily,
+      fontBold,
+    ] = await Promise.all([
+      window.api.config.getConfirmOnCloseTab(),
+      window.api.config.getTerminalMultilineEnter(),
+      window.api.config.getTerminalCopyPaste(),
+      window.api.config.getFontSize(),
+      window.api.config.getFontFamily(),
+      window.api.config.getFontBold(),
+    ]);
+    const validatedFontFamily = validateFontFamily(fontFamily);
     document.documentElement.style.setProperty('--app-font-size', `${fontSize}px`);
     document.documentElement.style.setProperty('--app-font-weight', fontBold ? '700' : '400');
-    set({ confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste, fontSize, fontBold });
+    set({
+      confirmOnCloseTab,
+      terminalMultilineEnter,
+      terminalCopyPaste,
+      fontSize,
+      fontFamily: validatedFontFamily,
+      fontBold,
+    });
   },
 
   async setFontSize(size) {
@@ -697,6 +721,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     await window.api.config.setFontSize(size);
     document.documentElement.style.setProperty('--app-font-size', `${size}px`);
     set({ fontSize: size });
+  },
+
+  async setFontFamily(fontFamily) {
+    const next = validateFontFamily(fontFamily);
+    await window.api.config.setFontFamily(next);
+    set({ fontFamily: next });
   },
 
   async setFontBold(bold) {
