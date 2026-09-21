@@ -12,9 +12,7 @@ import {
 } from '../maintenance/filesystem.mjs';
 import { makePatch } from '../maintenance/formatting.mjs';
 import { fail } from '../maintenance/policy.mjs';
-import { resolveNpmCli } from '../maintenance/process.mjs';
 import { createCommands } from './commands.mjs';
-import { buildTestCatalogue } from './progress.mjs';
 import {
   assertDriverReceipt,
   assertSnapshotDelta,
@@ -99,7 +97,6 @@ export async function runWorker(sourceRoot, relativeRun) {
     if (!manifestEntry) fail('missing-input', 'The current candidate is missing package.json.');
     const manifest = parseReceipt(manifestEntry.content);
     requireCandidateScripts(manifest);
-    const progressCatalogue = await buildTestCatalogue(source.entries);
     if (Object.hasOwn(manifest.scripts, undefinedScript)) {
       fail('fixture-collision', 'The intentionally undefined fixture command already exists.');
     }
@@ -121,7 +118,6 @@ export async function runWorker(sourceRoot, relativeRun) {
       `${JSON.stringify(summary, null, 2)}\n`,
       'current-candidate-inventory',
     );
-    const npmCli = await resolveNpmCli();
     const prettierCli = (await safePath(sourceRoot, 'node_modules/prettier/bin/prettier.cjs'))
       .target;
     const fixturePath = `docs/maintenance-loop-fixture-${relativeRun.split('-').at(-1)}.md`;
