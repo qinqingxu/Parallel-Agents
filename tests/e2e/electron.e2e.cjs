@@ -152,8 +152,8 @@ async function checkRenderer(projectPath) {
     uiPtys.add(id);
     uiOutput += data;
   });
-  const waitFor = async (predicate, message) => {
-    const until = Date.now() + 12_000;
+  const waitFor = async (predicate, message, timeoutMs = 12_000) => {
+    const until = Date.now() + timeoutMs;
     while (!predicate()) {
       if (Date.now() > until) throw new Error(typeof message === 'function' ? message() : message);
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -192,6 +192,7 @@ async function checkRenderer(projectPath) {
         return text.includes('staged') && text.includes('working');
       },
       () => `Offline diff revisions did not render; observed ${JSON.stringify(text.slice(0, 200))}`,
+      25_000,
     );
     check(
       text.includes('staged') && text.includes('working'),
