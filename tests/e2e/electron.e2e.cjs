@@ -163,7 +163,9 @@ async function checkRenderer(projectPath) {
     let refresh;
     await waitFor(() => {
       refresh = [...document.querySelectorAll('button')].find((button) =>
-        button.textContent.includes('Refresh Projects'),
+        /refresh projects/i.test(
+          `${button.getAttribute('aria-label') ?? ''} ${button.getAttribute('title') ?? ''} ${button.textContent ?? ''}`,
+        ),
       );
       return refresh && !refresh.disabled;
     }, 'The inventory refresh action is unavailable');

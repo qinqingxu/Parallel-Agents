@@ -1,19 +1,36 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppStore } from './store/app-store';
-import { Sidebar } from './components/Sidebar';
-import { TerminalTabs } from './components/TerminalTabs';
-import { Explorer } from './components/Explorer';
-import { GitPanel } from './components/GitPanel';
 import { StatusBar } from './components/StatusBar';
-import { AboutDialog } from './components/AboutDialog';
 import { AgentsBanner } from './components/AgentsBanner';
 import { ClaudeIcon } from './components/ClaudeIcon';
 import type { PaneId } from '../shared/types';
 import { INVENTORY_AUTO_REFRESH_MS } from '../shared/constants';
 import { sessionTabLabelSuffix } from '../shared/session-terminals';
 import { handleSessionTabShortcut } from './session-shortcuts';
-import { UpdateReadyNotice } from './components/UpdateReadyNotice';
+
+const Sidebar = lazy(async () => ({
+  default: (await import('./components/Sidebar')).Sidebar,
+}));
+const TerminalTabs = lazy(async () => ({
+  default: (await import('./components/TerminalTabs')).TerminalTabs,
+}));
+const Explorer = lazy(async () => ({
+  default: (await import('./components/Explorer')).Explorer,
+}));
+const GitPanel = lazy(async () => ({
+  default: (await import('./components/GitPanel')).GitPanel,
+}));
+const AboutDialog = lazy(async () => ({
+  default: (await import('./components/AboutDialog')).AboutDialog,
+}));
+const UpdateReadyNotice = lazy(async () => ({
+  default: (await import('./components/UpdateReadyNotice')).UpdateReadyNotice,
+}));
+
+function PaneFallback() {
+  return <div className="pane-loading">Loading…</div>;
+}
 
 function RightColumn() {
   return (
@@ -111,21 +128,31 @@ export default function App() {
   const panes = useMemo(
     () => ({
       sidebar: {
-        node: <Sidebar onAbout={() => setAboutOpen(true)} />,
+        node: (
+          <Suspense fallback={<PaneFallback />}>
+            <Sidebar onAbout={() => setAboutOpen(true)} />
+          </Suspense>
+        ),
         minSize: 14,
         maxSize: 40 as number | undefined,
       },
       middle: {
         node: (
           <div className="middle">
-            <TerminalTabs />
+            <Suspense fallback={<PaneFallback />}>
+              <TerminalTabs />
+            </Suspense>
           </div>
         ),
         minSize: 20,
         maxSize: undefined as number | undefined,
       },
       right: {
-        node: <RightColumn />,
+        node: (
+          <Suspense fallback={<PaneFallback />}>
+            <RightColumn />
+          </Suspense>
+        ),
         minSize: 14,
         maxSize: 50 as number | undefined,
       },
@@ -162,8 +189,10 @@ export default function App() {
         </PanelGroup>
       </div>
       <StatusBar />
-      <UpdateReadyNotice />
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      <Suspense fallback={null}>
+        <UpdateReadyNotice />
+        {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      </Suspense>
     </div>
   );
 }
