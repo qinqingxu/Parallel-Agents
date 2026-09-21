@@ -31,8 +31,8 @@ async function backend(home) {
           builder.onLoad({ filter: /.*/, namespace: 'test-home' }, (args) => ({
             contents:
               args.path === 'electron'
-                ? `export const app = { getPath: () => ${JSON.stringify(home)} };`
-                : `export const homedir = () => ${JSON.stringify(home)};`,
+                ? 'export const app = { getPath: () => process.env.PARALLEL_AGENTS_TEST_HOME };'
+                : 'export const homedir = () => process.env.PARALLEL_AGENTS_TEST_HOME;',
           }));
         },
       },
@@ -40,9 +40,13 @@ async function backend(home) {
   });
   await writeFile(outputFile, result.outputFiles[0].text, 'utf8');
   const bundledRequire = createRequire(outputFile);
+  const previousHome = process.env.PARALLEL_AGENTS_TEST_HOME;
+  process.env.PARALLEL_AGENTS_TEST_HOME = home;
   try {
     return bundledRequire(outputFile);
   } finally {
+    if (previousHome === undefined) delete process.env.PARALLEL_AGENTS_TEST_HOME;
+    else process.env.PARALLEL_AGENTS_TEST_HOME = previousHome;
     await rm(outputDirectory, { recursive: true, force: true });
   }
 }

@@ -243,6 +243,19 @@ export async function deleteCodexSession(
   await unlink(session.filePath);
 }
 
+export async function deleteCodexProjectSession(
+  projectPath: string,
+  sessionId: string,
+  codexRoot: string = DEFAULT_CODEX_ROOT,
+): Promise<void> {
+  const target = normalizeCodexProjectPath(projectPath);
+  const session = (await listCodexSessions(codexRoot)).find(
+    (item) => item.id === sessionId && normalizeCodexProjectPath(item.cwd) === target,
+  );
+  if (!session) throw new Error(`Session not found: ${sessionId}`);
+  await unlink(session.filePath);
+}
+
 export async function deleteCodexProject(
   projectPath: string,
   codexRoot: string = DEFAULT_CODEX_ROOT,

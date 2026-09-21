@@ -2,7 +2,7 @@ import { readdir, stat, unlink, rm } from 'fs/promises';
 import { join, normalize } from 'path';
 import { homedir } from 'os';
 import {
-  deleteCodexSession,
+  deleteCodexProjectSession,
   filterCodexSessionsByProject,
   listCodexSessions,
 } from './codex-storage.ts';
@@ -176,7 +176,7 @@ export async function deleteSession(projectId: string, sessionId: string): Promi
   if (agent === 'claude') {
     await unlink(join(CLAUDE_ROOT, dirName, `${sessionId}.jsonl`));
   } else if (agent === 'codex') {
-    await deleteCodexSession(sessionId);
+    await deleteCodexProjectSession(dirName, sessionId);
   } else if (agent === 'gemini') {
     const file = await findGeminiSessionFile(dirName, sessionId);
     if (!file) throw new Error(`Session not found: ${sessionId}`);

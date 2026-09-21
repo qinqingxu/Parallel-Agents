@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import {
   deleteCodexProject,
+  deleteCodexProjectSession,
   deleteCodexSession,
   filterCodexSessionsByProject,
   groupCodexSessionsByProject,
@@ -154,12 +155,18 @@ test('deletes only the targeted Codex session and project files', async (t) => {
   await assert.rejects(readFile(firstFile), { code: 'ENOENT' });
   await readFile(secondFile);
   await readFile(otherFile);
+  await assert.rejects(
+    deleteCodexProjectSession(secondProject, 'second-session', root),
+    /Session not found/,
+  );
+  await deleteCodexProjectSession(firstProject, 'second-session', root);
+  await assert.rejects(readFile(secondFile), { code: 'ENOENT' });
+  await readFile(otherFile);
 
   await deleteCodexProject(
     process.platform === 'win32' ? firstProject.toUpperCase() : firstProject,
     root,
   );
-  await assert.rejects(readFile(secondFile), { code: 'ENOENT' });
   await readFile(otherFile);
   await assert.rejects(
     deleteCodexSession('missing-session', root),
