@@ -155,7 +155,10 @@ test('deletes only the targeted Codex session and project files', async (t) => {
   await readFile(secondFile);
   await readFile(otherFile);
 
-  await deleteCodexProject(firstProject.toUpperCase(), root);
+  await deleteCodexProject(
+    process.platform === 'win32' ? firstProject.toUpperCase() : firstProject,
+    root,
+  );
   await assert.rejects(readFile(secondFile), { code: 'ENOENT' });
   await readFile(otherFile);
   await assert.rejects(

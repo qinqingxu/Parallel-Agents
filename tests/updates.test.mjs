@@ -240,7 +240,7 @@ test('preload update API forwards typed operations and removes event subscriptio
 
 test('release configuration produces GitHub NSIS update artifacts', async () => {
   const pkg = JSON.parse(await source('package.json'));
-  assert.equal(pkg.dependencies['electron-updater'], '6.3.9');
+  assert.equal(pkg.dependencies['electron-updater'], '6.8.9');
   assert.deepEqual(pkg.build.publish, {
     provider: 'github',
     owner: 'jelllove',
