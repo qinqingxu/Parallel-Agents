@@ -147,6 +147,7 @@ test('candidate contract refuses recursive E2E, lifecycle hooks, and replacement
     ['precheck', 'node injected.mjs'],
     ['posttest', 'npm install'],
     ['check:docs', 'node -e "process.exit(0)"'],
+    ['check:docs', 'node scripts/check-docs.mjs'],
     ['check:agent-corpus', 'node -e "process.exit(0)"'],
     ['test', expectedTest.replace('--test-concurrency=4', '--test-concurrency=0')],
     ['test', expectedTest.replace('--test-concurrency=4', '--test-concurrency=16')],

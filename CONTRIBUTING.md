@@ -322,8 +322,19 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) before changing these contracts.
 ## Documentation contract check
 
 [scripts/check-docs.mjs](scripts/check-docs.mjs) provides a small deterministic guard against
-**specific** documentation drift. It never runs documented commands, invokes Git, or accesses the
-network. Diagnostics identify the Markdown file, line, and corrective action.
+**specific** documentation drift. It never runs documented commands or accesses the network.
+Diagnostics identify the Markdown file, line, and corrective action.
+
+`npm run check:docs` also verifies the checked-diff inventory in
+[docs/documentation-contracts.md](docs/documentation-contracts.md). If active Markdown files are
+added or removed, refresh the inventory and commit the result:
+
+```powershell
+npm run docs:contracts:write
+```
+
+The standalone documentation workflow regenerates the same inventory and runs `git diff --exit-code`
+against it, so stale documentation scope changes are blocking failures rather than advisory reports.
 
 ### Discovery and exclusions
 

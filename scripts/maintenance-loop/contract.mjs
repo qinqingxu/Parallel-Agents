@@ -101,7 +101,7 @@ const requiredScripts = Object.freeze({
   'format:check': 'prettier --check .',
   typecheck: 'tsc --noEmit',
   test: 'node --test --test-concurrency=4 --import ./tests/helpers/isolated-git.mjs --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/*.test.mjs',
-  'check:docs': 'node scripts/check-docs.mjs',
+  'check:docs': 'node scripts/check-docs.mjs --check-contract',
   'check:agent-corpus': 'node scripts/check-agent-corpus.mjs',
 });
 

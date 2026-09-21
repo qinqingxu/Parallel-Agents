@@ -75,6 +75,11 @@ check without dependency installation. This keeps a broken package install or an
 job from hiding stale links/commands. The checker still deliberately covers a narrow executable
 contract, not all prose semantics; required-check enforcement remains an owner decision.
 
+The standalone workflow now verifies the generated inventory at
+[docs/documentation-contracts.md](documentation-contracts.md) with a checked diff. `npm run
+check:docs` fails when that inventory is stale, and `npm run docs:contracts:write` refreshes it
+before CI checks the resulting `git diff --exit-code`.
+
 ## Opt-in local hooks
 
 ```powershell

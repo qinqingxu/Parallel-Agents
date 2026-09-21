@@ -22,6 +22,8 @@ jobs:
         with:
           node-version-file: .node-version
       - name: Check all active Markdown without dependency installation
-        run: node scripts/check-docs.mjs
+        run: npm run check:docs
+      - name: Verify checked-diff documentation contract update path
+        run: npm run docs:contracts:write && git diff --exit-code -- docs/documentation-contracts.md
       - name: Verify failure and scope contracts of the checker
         run: node --test tests/check-docs.test.mjs
