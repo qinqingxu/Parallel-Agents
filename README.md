@@ -19,17 +19,19 @@ Launching an agent uses that CLI's own installation, authentication, and permiss
 
 ## Features
 
-- **Project and session discovery** for supported Claude Code, Copilot CLI, and Gemini CLI history formats.
-- **Project tabs backed by real PTYs**, with agent start/resume commands and remembered agent choices.
+- **Project and session discovery** for supported Claude Code, Codex, Copilot CLI, and Gemini CLI
+  history formats, including Copilot repository/session metadata.
+- **Per-session tabs backed by real PTYs**, with agent start/resume commands, remembered agent
+  choices, session rename/link flows, and optional attached shell panes.
+- **New project workflow** for opening folders directly or creating Git worktrees before launch.
+- **Project cleanup** for deleting missing provider histories after review and acknowledgement.
 - **File explorer** with create, rename, copy, move, trash, reveal, and default-application actions.
 - **Git panel** for status, staging, unstaging, discarding, commits, and read-only Monaco diffs
   using locally bundled editor assets loaded on demand.
-- **Configurable layout**, including six column orders, saved pane sizes, and dark/light themes.
+- **Configurable layout and typography**, including six column orders, saved pane sizes,
+  dark/light themes, and persisted font size/bold settings.
+- **Automatic updates** for installed Windows builds, with explicit restart confirmation.
 - **Tray lifecycle**: closing the window hides it; use the tray's Quit action to exit. F11 toggles fullscreen.
-
-Tabs and PTYs are currently keyed by project ID. Reopening the same ID reuses or restarts its tab;
-this is not arbitrary multiple independent tabs for the same project ID. Different provider project
-IDs can refer to the same directory. See the [identity and terminal flow](ARCHITECTURE.md#identity-and-terminal-flow).
 
 ## Quick start
 
@@ -38,6 +40,8 @@ IDs can refer to the same directory. See the [identity and terminal flow](ARCHIT
 Choose a Windows asset from [Releases](https://github.com/jelllove/Parallel-Agents/releases).
 For a portable archive, extract the whole directory before running `Parallel Agents.exe`; use the
 installer if that is the asset provided. Available artifacts depend on the release.
+Versions before 0.1.10 do not include automatic updates, so install an updater-enabled build
+manually once before relying on in-app checks.
 
 ### Develop from source
 
@@ -107,7 +111,7 @@ scope, and the generated `reports\smoke.json` and `reports\smoke.png` artifacts.
 | GitHub Copilot CLI | `copilot`  | `$HOME\.copilot\session-state\<session>\events.jsonl`                              |
 | Claude Code        | `claude`   | `$HOME\.claude\projects\<project>\*.jsonl`                                         |
 | Gemini CLI         | `gemini`   | `$HOME\.gemini\tmp\<project>\chats\*.jsonl`, with `.project_root` project metadata |
-| Codex CLI          | `codex`    | No automatic history scan; launch/resume command support                           |
+| Codex CLI          | `codex`    | `$HOME\.codex\sessions\**\*.jsonl` plus `session_index.jsonl` titles               |
 | Aider              | `aider`    | No automatic history scan; launch/restore command support                          |
 
 The Copilot executable is standalone **`copilot`**, not a GitHub CLI subcommand.

@@ -4,11 +4,16 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { useAppStore } from '../store/app-store';
 import type { ThemeMode } from '../../shared/types';
+import type { SessionShellProfile } from '../../shared/session-terminals';
+import { TERMINAL_FONT_FAMILY } from '../../shared/typography';
 
 interface Props {
-  projectId: string;
+  terminalKey: string;
   cwd: string;
   visible: boolean;
+  initialCommand?: string;
+  extraPath?: string[];
+  shellProfile?: SessionShellProfile;
 }
 
 function xtermThemeFor(mode: ThemeMode) {
@@ -27,7 +32,14 @@ function xtermThemeFor(mode: ThemeMode) {
       };
 }
 
-export function TerminalPane({ projectId, cwd, visible }: Props) {
+export function TerminalPane({
+  terminalKey,
+  cwd,
+  visible,
+  initialCommand,
+  extraPath,
+  shellProfile,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -35,6 +47,8 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
   const themeMode = useAppStore((s) => s.theme);
   const multilineEnter = useAppStore((s) => s.terminalMultilineEnter);
   const copyPaste = useAppStore((s) => s.terminalCopyPaste);
+  const fontSize = useAppStore((s) => s.fontSize);
+  const fontBold = useAppStore((s) => s.fontBold);
   const multilineRef = useRef(multilineEnter);
   const copyPasteRef = useRef(copyPaste);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -50,8 +64,10 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
     if (!containerRef.current) return;
 
     const term = new Terminal({
-      fontFamily: 'Cascadia Code, Consolas, monospace',
-      fontSize: 13,
+      fontFamily: TERMINAL_FONT_FAMILY,
+      fontSize: useAppStore.getState().fontSize,
+      fontWeight: useAppStore.getState().fontBold ? 700 : 400,
+      fontWeightBold: 700,
       cursorBlink: true,
       theme: xtermThemeFor(useAppStore.getState().theme),
       allowProposedApi: true,
@@ -66,7 +82,7 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
       if (e.type !== 'keydown') return true;
 
       if (multilineRef.current && e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
-        window.api.pty.write(projectId, '\n');
+        window.api.pty.write(terminalKey, '\n');
         return false;
       }
 
@@ -82,7 +98,7 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
         }
         if (e.key === 'v' || e.key === 'V') {
           void navigator.clipboard.readText().then((txt) => {
-            if (txt) window.api.pty.write(projectId, txt);
+            if (txt) window.api.pty.write(terminalKey, txt);
           });
           return false;
         }
@@ -95,38 +111,43 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
 
     const { cols, rows } = term;
     const offData = window.api.pty.onData((pid, data) => {
-      if (pid === projectId) term.write(data);
+      if (pid === terminalKey) term.write(data);
     });
     const offExit = window.api.pty.onExit((pid) => {
-      if (pid === projectId) {
+      if (pid === terminalKey) {
         term.write('\r\n\x1b[33m[process exited]\x1b[0m\r\n');
         spawnedRef.current = false;
       }
     });
 
     term.onData((data) => {
-      window.api.pty.write(projectId, data);
+      window.api.pty.write(terminalKey, data);
     });
 
-    const pending = useAppStore.getState().consumePendingCommand(projectId);
     window.api.pty
       .spawn({
-        projectId,
+        projectId: terminalKey,
         cwd,
         cols,
         rows,
-        initialCommand: pending?.command,
-        extraPath: pending?.extraPath,
+        initialCommand,
+        extraPath,
+        shellProfile,
       })
       .then(() => {
         spawnedRef.current = true;
+      })
+      .catch((error) => {
+        term.write(
+          `\r\n[Failed to start terminal: ${error instanceof Error ? error.message : String(error)}]\r\n`,
+        );
       });
 
     const ro = new ResizeObserver(() => {
       try {
         fit.fit();
         const { cols, rows } = term;
-        window.api.pty.resize(projectId, cols, rows);
+        window.api.pty.resize(terminalKey, cols, rows);
       } catch {}
     });
     ro.observe(containerRef.current);
@@ -139,7 +160,7 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [projectId, cwd]);
+  }, [terminalKey, cwd]);
 
   useEffect(() => {
     if (visible && fitRef.current && termRef.current) {
@@ -147,18 +168,29 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
         try {
           fitRef.current!.fit();
           const t = termRef.current!;
-          window.api.pty.resize(projectId, t.cols, t.rows);
+          window.api.pty.resize(terminalKey, t.cols, t.rows);
           t.focus();
         } catch {}
       });
     }
-  }, [visible, projectId]);
+  }, [visible, terminalKey]);
 
   useEffect(() => {
     const t = termRef.current;
     if (!t) return;
     t.options.theme = xtermThemeFor(themeMode);
   }, [themeMode]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.fontSize = fontSize;
+    term.options.fontWeight = fontBold ? 700 : 400;
+    if (visible) {
+      fitRef.current?.fit();
+      void window.api.pty.resize(terminalKey, term.cols, term.rows);
+    }
+  }, [fontSize, fontBold, visible, terminalKey]);
 
   function onContextMenu(e: React.MouseEvent) {
     if (!copyPasteRef.current) return;
@@ -175,7 +207,7 @@ export function TerminalPane({ projectId, cwd, visible }: Props) {
 
   async function doPaste() {
     const txt = await navigator.clipboard.readText();
-    if (txt) window.api.pty.write(projectId, txt);
+    if (txt) window.api.pty.write(terminalKey, txt);
     setMenu(null);
   }
 

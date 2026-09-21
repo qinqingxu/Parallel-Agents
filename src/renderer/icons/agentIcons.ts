@@ -1,6 +1,6 @@
 import type { AgentId } from '../../shared/types';
 import claudeUrl from '../assets/agents/claude.png';
-import codexUrl from '../assets/agents/codex.png';
+import codexUrl from '../assets/agents/codex-transparent.png';
 import geminiUrl from '../assets/agents/gemini.svg';
 import aiderUrl from '../assets/agents/aider.svg';
 import copilotUrl from '../assets/agents/copilot.svg';

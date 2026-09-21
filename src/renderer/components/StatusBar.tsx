@@ -2,11 +2,18 @@ import { useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { LayoutPicker } from './LayoutPicker';
 import { SettingsPicker } from './SettingsPicker';
+import { FontSizePicker } from './FontSizePicker';
 
 export function StatusBar() {
-  const project = useAppStore((s) =>
-    s.projects.find((p) => p.id === (s.activeTabId ?? s.selectedProjectId)),
-  );
+  const project = useAppStore((s) => {
+    const focusedId = s.activeTabId
+      ? (s.tabProjectId[s.activeTabId] ?? s.activeTabId)
+      : s.selectedProjectId;
+    if (!focusedId) return undefined;
+    return (
+      s.projects.find((p) => p.id === focusedId) ?? s.adhocProjects.find((p) => p.id === focusedId)
+    );
+  });
   const openTabs = useAppStore((s) => s.openTabs);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
@@ -20,7 +27,12 @@ export function StatusBar() {
       <span className="item">Mode: Ready</span>
       <span className="item">Tabs: {openTabs.length}</span>
       <span className="spacer" />
-      {project && <span className="item">{project.realPath}</span>}
+      {project && (
+        <span className="item status-project-path" title={project.realPath}>
+          {project.realPath}
+        </span>
+      )}
+      <FontSizePicker />
       <button
         className="sb-btn"
         title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}

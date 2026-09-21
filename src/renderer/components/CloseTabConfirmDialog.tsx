@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {
-  projectName: string;
+  title: string;
+  message: string;
+  confirmText?: string;
   onConfirm: (dontAskAgain: boolean) => void;
   onCancel: () => void;
 }
 
-export function CloseTabConfirmDialog({ projectName, onConfirm, onCancel }: Props) {
+export function CloseTabConfirmDialog({
+  title,
+  message,
+  confirmText = 'Close tab',
+  onConfirm,
+  onCancel,
+}: Props) {
   const [dontAskAgain, setDontAskAgain] = useState(false);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -23,12 +31,9 @@ export function CloseTabConfirmDialog({ projectName, onConfirm, onCancel }: Prop
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Close this tab?</div>
+        <div className="modal-title">{title}</div>
         <div className="modal-body">
-          <div>
-            The tab <b>"{projectName}"</b> will be closed. Any running CLI process in this tab will
-            also stop.
-          </div>
+          <div>{message}</div>
           <label className="modal-check" style={{ marginTop: 12 }}>
             <input
               type="checkbox"
@@ -47,7 +52,7 @@ export function CloseTabConfirmDialog({ projectName, onConfirm, onCancel }: Prop
             className="btn-primary"
             onClick={() => onConfirm(dontAskAgain)}
           >
-            Close tab
+            {confirmText}
           </button>
         </div>
       </div>

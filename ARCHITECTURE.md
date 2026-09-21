@@ -79,45 +79,49 @@ It does not publish over the network, but it can replace existing local artifact
 
 ## Source map
 
-| Module                                                             | Responsibility                                                                                                  |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [src/main/ipc.ts](src/main/ipc.ts)                                 | Register IPC handlers and attach main-process event destinations                                                |
-| [src/main/projects.ts](src/main/projects.ts)                       | Discover supported provider projects, apply saved pin/hide/order preferences, remove provider project history   |
-| [src/main/sessions.ts](src/main/sessions.ts)                       | List/delete provider sessions and map metadata into the shared session model                                    |
-| [src/main/session-metadata.ts](src/main/session-metadata.ts)       | Read and validate Claude, Copilot, and Gemini JSONL metadata without Electron                                   |
-| [src/main/agent-providers.ts](src/main/agent-providers.ts)         | Agent catalogue, installation guidance, binary discovery via `where`/`which` and Windows Copilot fallback paths |
-| [src/shared/agent-commands.ts](src/shared/agent-commands.ts)       | Pure start/resume commands and executable-directory PATH hints                                                  |
-| [src/main/pty-manager.ts](src/main/pty-manager.ts)                 | Bind the PTY manager to the native `node-pty` spawn implementation                                              |
-| [src/main/pty-session-manager.ts](src/main/pty-session-manager.ts) | Manage keyed PTYs, initial-command timers, resize, exit, and cleanup; accepts an injected launcher              |
-| [src/main/window-messenger.ts](src/main/window-messenger.ts)       | Send events only to usable window/webContents targets                                                           |
-| [src/main/fs-explorer.ts](src/main/fs-explorer.ts)                 | Filesystem operations plus Electron trash/reveal/default-application integration                                |
-| [src/main/git.ts](src/main/git.ts)                                 | Local Git commands, NUL-delimited status, diff content, and repository watchers                                 |
-| [src/main/config.ts](src/main/config.ts)                           | Electron home-path adapter for the config store                                                                 |
-| [src/main/config-schema.ts](src/main/config-schema.ts)             | Defaults, persisted-value validation, and legacy project-ID migration                                           |
-| [src/main/config-store.ts](src/main/config-store.ts)               | Path-injected, queued configuration reads/updates and staged-file replacement                                   |
-| [src/renderer/store/app-store.ts](src/renderer/store/app-store.ts) | Projects, sessions, tabs, agent choices, preferences, and Git state                                             |
-| [src/renderer/monaco.ts](src/renderer/monaco.ts)                   | Local Monaco editor/worker setup used by the diff UI                                                            |
-| [src/renderer/styles/theme.css](src/renderer/styles/theme.css)     | Shared styling and theme variables                                                                              |
+| Module                                                             | Responsibility                                                                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [src/main/ipc.ts](src/main/ipc.ts)                                 | Register IPC handlers and attach main-process event destinations                                                          |
+| [src/main/projects.ts](src/main/projects.ts)                       | Discover/register supported provider projects, create worktree projects, apply saved preferences, remove provider history |
+| [src/main/sessions.ts](src/main/sessions.ts)                       | List/delete provider sessions and map metadata into the shared session model                                              |
+| [src/main/session-metadata.ts](src/main/session-metadata.ts)       | Read and validate Claude, Copilot, and Gemini JSONL metadata without Electron                                             |
+| [src/main/codex-storage.ts](src/main/codex-storage.ts)             | Scan Codex rollout files and session index metadata                                                                       |
+| [src/main/agent-providers.ts](src/main/agent-providers.ts)         | Agent catalogue, installation guidance, binary discovery via `where`/`which` and Windows Copilot fallback paths           |
+| [src/shared/agent-commands.ts](src/shared/agent-commands.ts)       | Pure start/resume commands and executable-directory PATH hints                                                            |
+| [src/main/pty-manager.ts](src/main/pty-manager.ts)                 | Bind the PTY manager to the native `node-pty` spawn implementation                                                        |
+| [src/main/pty-session-manager.ts](src/main/pty-session-manager.ts) | Manage keyed agent/shell PTYs, initial-command timers, resize, exit, shell profile resolution, and cleanup                |
+| [src/main/shell-profiles.ts](src/main/shell-profiles.ts)           | Discover interactive shell choices for attached shell panes                                                               |
+| [src/main/update-controller.ts](src/main/update-controller.ts)     | Wrap updater checks/download/install state and restart confirmation                                                       |
+| [src/main/window-messenger.ts](src/main/window-messenger.ts)       | Send events only to usable window/webContents targets                                                                     |
+| [src/main/fs-explorer.ts](src/main/fs-explorer.ts)                 | Filesystem operations plus Electron trash/reveal/default-application integration                                          |
+| [src/main/git.ts](src/main/git.ts)                                 | Local Git commands, NUL-delimited status, diff content, and repository watchers                                           |
+| [src/main/config.ts](src/main/config.ts)                           | Electron home-path adapter for the config store                                                                           |
+| [src/main/config-schema.ts](src/main/config-schema.ts)             | Defaults, persisted-value validation, and legacy project-ID migration                                                     |
+| [src/main/config-store.ts](src/main/config-store.ts)               | Path-injected, queued configuration reads/updates and staged-file replacement                                             |
+| [src/renderer/store/app-store.ts](src/renderer/store/app-store.ts) | Projects, sessions, tabs, agent choices, preferences, and Git state                                                       |
+| [src/renderer/monaco.ts](src/renderer/monaco.ts)                   | Local Monaco editor/worker setup used by the diff UI                                                                      |
+| [src/renderer/styles/theme.css](src/renderer/styles/theme.css)     | Shared styling and theme variables                                                                                        |
 
 ## IPC contract
 
 For any API change, keep the shared `Api`, main handler, preload wrapper, and renderer caller aligned.
 The table lists suffixes under each namespace; main-to-renderer event names are shown in full.
 
-| Namespace  | Requests (renderer → main)                                                                                                                                                                                                                 | Events (main → renderer) |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| `projects` | `list`, `pin`, `hide`, `delete`, `setOrder`                                                                                                                                                                                                | —                        |
-| `sessions` | `listForProject`, `delete`                                                                                                                                                                                                                 | —                        |
-| `pty`      | `spawn`, `write`, `resize`, `kill`                                                                                                                                                                                                         | `pty:data`, `pty:exit`   |
-| `fs`       | `readDir`, `createFile`, `createDir`, `rename`, `copy`, `move`, `trash`, `reveal`, `openDefault`                                                                                                                                           | —                        |
-| `git`      | `status`, `diff`, `stage`, `unstage`, `discard`, `commit`, `watch`                                                                                                                                                                         | `git:changed`            |
-| `dialog`   | `pickDirectory`                                                                                                                                                                                                                            | —                        |
-| `agents`   | `list`, `checkAll`                                                                                                                                                                                                                         | —                        |
-| `config`   | `getLastAgent`, `setLastAgent`, `getLayout`, `setLayout`, `getTheme`, `setTheme`, `getConfirmOnCloseTab`, `setConfirmOnCloseTab`, `getTerminalMultilineEnter`, `setTerminalMultilineEnter`, `getTerminalCopyPaste`, `setTerminalCopyPaste` | —                        |
-| `shell`    | `openExternal`                                                                                                                                                                                                                             | —                        |
-| `window`   | —                                                                                                                                                                                                                                          | `window:fullscreen`      |
+| Namespace  | Requests (renderer → main)                                                                                                                                                                                                                                                                             | Events (main → renderer) |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `updates`  | `getStatus`, `check`, `install`                                                                                                                                                                                                                                                                        | `updates:status`         |
+| `projects` | `list`, `create`, `pin`, `hide`, `delete`, `deleteMissing`, `setOrder`                                                                                                                                                                                                                                 | —                        |
+| `sessions` | `listForProject`, `delete`, `rename`                                                                                                                                                                                                                                                                   | —                        |
+| `pty`      | `spawn`, `write`, `resize`, `kill`                                                                                                                                                                                                                                                                     | `pty:data`, `pty:exit`   |
+| `fs`       | `readDir`, `createFile`, `createDir`, `rename`, `copy`, `move`, `trash`, `reveal`, `openDefault`                                                                                                                                                                                                       | —                        |
+| `git`      | `status`, `diff`, `stage`, `unstage`, `discard`, `commit`, `watch`                                                                                                                                                                                                                                     | `git:changed`            |
+| `dialog`   | `pickDirectory`                                                                                                                                                                                                                                                                                        | —                        |
+| `agents`   | `list`, `checkAll`                                                                                                                                                                                                                                                                                     | —                        |
+| `config`   | `getLastAgent`, `setLastAgent`, `getLayout`, `setLayout`, `getTheme`, `setTheme`, `getConfirmOnCloseTab`, `setConfirmOnCloseTab`, `getTerminalMultilineEnter`, `setTerminalMultilineEnter`, `getTerminalCopyPaste`, `setTerminalCopyPaste`, `getFontSize`, `setFontSize`, `getFontBold`, `setFontBold` | —                        |
+| `shell`    | `list`, `openExternal`                                                                                                                                                                                                                                                                                 | —                        |
+| `window`   | —                                                                                                                                                                                                                                                                                                      | `window:fullscreen`      |
 
-PTY events carry the same project ID used to spawn the PTY. Git events carry a repository path.
+PTY events carry the same terminal key used to spawn the PTY. Git events carry a repository path.
 Callers must release subscriptions when effects unmount; quitting the app cleans up main-process
 watchers and PTYs. A channel's TypeScript annotation does not validate an arbitrary runtime payload.
 
@@ -133,17 +137,19 @@ Copilot projects are grouped by the project path recorded in session metadata. D
 projects can use an `adhoc:` prefix. The `realPath` field is the filesystem location; do not derive
 every real path by splitting the project ID or decoding a provider directory name.
 
-**Current invariant:** `openTabs`, `tabAgent`, pending launches, and the PTY map use **project ID** as
-the key. Reopening/resuming a project ID reuses or restarts that entry; it does not allocate an
-arbitrary second independent terminal for the same ID.
+`openTabs` uses tab IDs. Plain project tabs use the project ID; resumed sessions use
+`<projectId>::session:<sessionId>`. PTY keys add `::agent` or `::shell:<profile>` so an agent and an
+attached shell can share one tab without colliding. Reopening an already-open native session focuses
+its tab; a newly launched tab can be linked to the native session it creates before renaming.
 
 1. Selecting a project loads its sessions and requests Git status/watch for an existing directory.
 2. Opening it from the project list resumes a single known session, requests explicit selection
    when there are multiple sessions, or starts the project's agent when there is no resumable session.
-3. The store remembers the selected agent and holds a pending command plus PATH hints.
+3. The store remembers the selected agent, records the tab/project/session mapping, and holds a
+   pending command plus PATH hints.
    [TerminalPane](src/renderer/components/TerminalPane.tsx) consumes this pending launch and requests a PTY.
-4. The manager starts `cmd.exe` on Windows (the configured shell or `bash` on other platforms), with
-   the project working directory, minimum terminal dimensions, and optional PATH additions.
+4. The manager starts the default command shell for agent terminals, or a resolved shell profile for
+   attached shell panes, with the project working directory, minimum terminal dimensions, and optional PATH additions.
    The initial command is sent after a short timer.
 5. PTY data and exit events return through preload to xterm. Close/restart/quit paths must cancel
    obsolete timers and prevent late events from a previous PTY affecting a replacement.
@@ -159,16 +165,18 @@ Binary detection does not verify authentication or a live provider response.
 
 ## History and persistence
 
-| Location                             | Data and ownership                                                                                                           |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `$HOME\.claude\parallel-agents.json` | Application preferences: pin/hide state, last agent, project order, horizontal layout, theme, tab-close and terminal options |
-| `$HOME\.claude\projects`             | Claude project/session JSONL history                                                                                         |
-| `$HOME\.gemini\tmp`                  | Gemini project roots and the supported JSONL chat format                                                                     |
-| `$HOME\.copilot\session-state`       | Copilot session directories with `events.jsonl`                                                                              |
-| Chromium local storage               | The Explorer/Git vertical panel group's `autoSaveId` layout                                                                  |
-| Selected project directories         | Real working files and Git metadata, owned by the user                                                                       |
+| Location                                         | Data and ownership                                                                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `$HOME\.claude\parallel-agents.json`             | Application preferences: pin/hide state, last agent, project order, horizontal layout, theme, tab-close and terminal options |
+| `$HOME\.claude\parallel-agents-preferences.json` | Session display names, font preferences, and registered manual/worktree projects                                             |
+| `$HOME\.claude\projects`                         | Claude project/session JSONL history                                                                                         |
+| `$HOME\.codex`                                   | Codex rollout files and `session_index.jsonl` metadata                                                                       |
+| `$HOME\.gemini\tmp`                              | Gemini project roots and the supported JSONL chat format                                                                     |
+| `$HOME\.copilot\session-state`                   | Copilot session directories with `events.jsonl`                                                                              |
+| Chromium local storage                           | The Explorer/Git vertical panel group's `autoSaveId` layout                                                                  |
+| Selected project directories                     | Real working files and Git metadata, owned by the user                                                                       |
 
-The app scans Claude, Gemini, and Copilot histories, not Codex or Aider histories. The session readers
+The app scans Claude, Codex, Gemini, and Copilot histories, not Aider histories. The session readers
 validate the fields they consume, tolerate unusable records, and distinguish missing files from
 other I/O failures. Provider format compatibility is bounded by those readers; there is no universal
 provider schema or live-provider compatibility guarantee.

@@ -40,9 +40,15 @@ function colorFor(state: GitFileState | null): string {
 }
 
 export function GitPanel() {
-  const project = useAppStore((s) =>
-    s.projects.find((p) => p.id === (s.activeTabId ?? s.selectedProjectId)),
-  );
+  const project = useAppStore((s) => {
+    const focusedId = s.activeTabId
+      ? (s.tabProjectId[s.activeTabId] ?? s.activeTabId)
+      : s.selectedProjectId;
+    if (!focusedId) return undefined;
+    return (
+      s.projects.find((p) => p.id === focusedId) ?? s.adhocProjects.find((p) => p.id === focusedId)
+    );
+  });
   const gitStatusByPath = useAppStore((s) => s.gitStatusByPath);
   const loadGitStatus = useAppStore((s) => s.loadGitStatus);
 

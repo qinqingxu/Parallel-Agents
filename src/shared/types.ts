@@ -1,3 +1,5 @@
+import type { SessionShellProfile } from './session-terminals';
+
 export type AgentId = 'claude' | 'codex' | 'gemini' | 'aider' | 'copilot';
 
 export interface AgentInfo {
@@ -25,6 +27,30 @@ export interface Project {
   hidden: boolean;
   sessionCount: number;
   lastActivity: number | null;
+  historyProjectId?: string;
+}
+
+export interface RegisteredProject {
+  id: string;
+  agent: AgentId;
+  realPath: string;
+  historyPath?: string;
+}
+
+export interface NewProjectOptions {
+  agent: AgentId;
+  basePath: string;
+  mode: 'folder' | 'worktree';
+  branch?: string;
+  startPoint?: string;
+  targetPath?: string;
+}
+
+export interface AvailableShell {
+  id: string;
+  label: string;
+  command: string;
+  args: string[];
 }
 
 export interface Session {
@@ -52,6 +78,7 @@ export interface PtySpawnOptions {
   rows: number;
   initialCommand?: string;
   extraPath?: string[];
+  shellProfile?: SessionShellProfile;
 }
 
 export type PaneId = 'sidebar' | 'middle' | 'right';
@@ -98,15 +125,41 @@ export interface GitDiff {
   newLabel: string;
 }
 
+export interface UpdateStatus {
+  state:
+    | 'unavailable'
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'installing'
+    | 'error';
+  currentVersion: string;
+  version?: string;
+  percent?: number;
+  message?: string;
+  canInstall: boolean;
+}
+
 export interface Api {
+  updates: {
+    getStatus(): Promise<UpdateStatus>;
+    check(): Promise<UpdateStatus>;
+    install(): Promise<UpdateStatus>;
+    onStatus(cb: (status: UpdateStatus) => void): () => void;
+  };
   projects: {
+    create(options: NewProjectOptions): Promise<Project>;
     list(): Promise<Project[]>;
     pin(id: string, pinned: boolean): Promise<void>;
     hide(id: string, hidden: boolean): Promise<void>;
     delete(id: string): Promise<void>;
+    deleteMissing(ids: string[]): Promise<void>;
     setOrder(agent: AgentId, ids: string[]): Promise<void>;
   };
   sessions: {
+    rename(projectId: string, sessionId: string, title: string): Promise<string>;
     listForProject(projectId: string): Promise<Session[]>;
     delete(projectId: string, sessionId: string): Promise<void>;
   };
@@ -137,6 +190,10 @@ export interface Api {
     checkAll(): Promise<Record<AgentId, AgentStatus>>;
   };
   config: {
+    getFontSize(): Promise<number>;
+    setFontSize(size: number): Promise<void>;
+    getFontBold(): Promise<boolean>;
+    setFontBold(bold: boolean): Promise<void>;
     getLastAgent(projectId: string): Promise<AgentId | null>;
     setLastAgent(projectId: string, agentId: AgentId): Promise<void>;
     getLayout(): Promise<LayoutConfig>;
@@ -161,6 +218,7 @@ export interface Api {
     onChanged(cb: (repoPath: string) => void): () => void;
   };
   shell: {
+    list(): Promise<AvailableShell[]>;
     openExternal(url: string): Promise<void>;
   };
   window: {

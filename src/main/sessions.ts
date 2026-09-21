@@ -1,13 +1,20 @@
 import { readdir, stat, unlink, rm } from 'fs/promises';
 import { join, normalize } from 'path';
 import { homedir } from 'os';
-import type { Session, AgentId } from '../shared/types';
+import {
+  deleteCodexSession,
+  filterCodexSessionsByProject,
+  listCodexSessions,
+} from './codex-storage.ts';
+import type { Session, AgentId } from '../shared/types.ts';
 import {
   isMissingSessionFile,
   readClaudeSessionMeta,
   readCopilotSessionMeta,
   readGeminiSessionMeta,
 } from './session-metadata.ts';
+import { preferences } from './preferences-store.ts';
+import { applySessionNames } from '../shared/session-presentation.ts';
 
 const CLAUDE_ROOT = join(homedir(), '.claude', 'projects');
 const GEMINI_TMP_ROOT = join(homedir(), '.gemini', 'tmp');
@@ -16,6 +23,12 @@ const COPILOT_SESSION_STATE_ROOT = join(homedir(), '.copilot', 'session-state');
 function normalizeProjectPath(p: string): string {
   const n = normalize(p);
   return process.platform === 'win32' ? n.toLowerCase() : n;
+}
+
+async function resolveHistoryProjectId(projectId: string): Promise<string | null> {
+  if (!projectId.includes(':manual:')) return projectId;
+  const projects = await import('./projects.ts');
+  return projects.resolveHistoryProjectId(projectId);
 }
 
 async function readSessionDirectory(directory: string): Promise<string[]> {
@@ -99,6 +112,11 @@ async function listCopilotSessions(projectId: string, projectPath: string): Prom
 }
 
 export async function listSessionsForProject(projectId: string): Promise<Session[]> {
+  const historyId = await resolveHistoryProjectId(projectId);
+  if (!historyId) return [];
+  if (historyId !== projectId) {
+    return (await listSessionsForProject(historyId)).map((s) => ({ ...s, projectId }));
+  }
   const colon = projectId.indexOf(':');
   if (colon < 0) return [];
   const agent = projectId.slice(0, colon) as AgentId;
@@ -106,12 +124,33 @@ export async function listSessionsForProject(projectId: string): Promise<Session
 
   let out: Session[] = [];
   if (agent === 'claude') out = await listClaudeSessions(projectId, dirName);
-  else if (agent === 'gemini') out = await listGeminiSessions(projectId, dirName);
+  else if (agent === 'codex') {
+    out = filterCodexSessionsByProject(await listCodexSessions(), dirName).map((session) => ({
+      id: session.id,
+      projectId,
+      agent: 'codex',
+      title: session.title,
+      timestamp: session.timestamp,
+      cwd: session.cwd,
+      gitBranch: null,
+      version: session.version,
+    }));
+  } else if (agent === 'gemini') out = await listGeminiSessions(projectId, dirName);
   else if (agent === 'copilot') out = await listCopilotSessions(projectId, dirName);
-  // codex/aider: no session listing in v1
+  // aider: no session listing in v1
 
   out.sort((a, b) => b.timestamp - a.timestamp);
-  return out;
+  return applySessionNames(out, (await preferences.read()).sessionNames);
+}
+
+export async function renameSession(
+  projectId: string,
+  sessionId: string,
+  title: string,
+): Promise<string> {
+  const session = (await listSessionsForProject(projectId)).find((s) => s.id === sessionId);
+  if (!session) throw new Error(`Session not found: ${sessionId}`);
+  return preferences.renameSession(session.agent, session.id, title);
 }
 
 async function findGeminiSessionFile(dirName: string, sessionId: string): Promise<string | null> {
@@ -126,6 +165,9 @@ async function findGeminiSessionFile(dirName: string, sessionId: string): Promis
 }
 
 export async function deleteSession(projectId: string, sessionId: string): Promise<void> {
+  const historyId = await resolveHistoryProjectId(projectId);
+  if (!historyId) throw new Error(`Session not found: ${sessionId}`);
+  if (historyId !== projectId) return deleteSession(historyId, sessionId);
   const colon = projectId.indexOf(':');
   if (colon < 0) throw new Error(`Invalid projectId: ${projectId}`);
   const agent = projectId.slice(0, colon) as AgentId;
@@ -133,6 +175,8 @@ export async function deleteSession(projectId: string, sessionId: string): Promi
 
   if (agent === 'claude') {
     await unlink(join(CLAUDE_ROOT, dirName, `${sessionId}.jsonl`));
+  } else if (agent === 'codex') {
+    await deleteCodexSession(sessionId);
   } else if (agent === 'gemini') {
     const file = await findGeminiSessionFile(dirName, sessionId);
     if (!file) throw new Error(`Session not found: ${sessionId}`);

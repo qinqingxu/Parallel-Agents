@@ -20,9 +20,15 @@ function dirName(p: string): string {
 }
 
 export function Explorer() {
-  const project = useAppStore((s) =>
-    s.projects.find((p) => p.id === (s.activeTabId ?? s.selectedProjectId)),
-  );
+  const project = useAppStore((s) => {
+    const focusedId = s.activeTabId
+      ? (s.tabProjectId[s.activeTabId] ?? s.activeTabId)
+      : s.selectedProjectId;
+    if (!focusedId) return undefined;
+    return (
+      s.projects.find((p) => p.id === focusedId) ?? s.adhocProjects.find((p) => p.id === focusedId)
+    );
+  });
   const clipboard = useAppStore((s) => s.clipboard);
   const setClipboard = useAppStore((s) => s.setClipboard);
 
@@ -109,8 +115,9 @@ export function Explorer() {
           if (clipboard.mode === 'copy') await window.api.fs.copy(src, dest);
           else await window.api.fs.move(src, dest);
           break;
-        } catch (err) {
-          if (!(err instanceof Error) || !err.message.includes('exists')) throw err;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!message.includes('exists')) throw err;
           const dot = name.lastIndexOf('.');
           const base = dot > 0 ? name.slice(0, dot) : name;
           const ext = dot > 0 ? name.slice(dot) : '';

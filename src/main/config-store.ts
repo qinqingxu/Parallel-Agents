@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { AgentId, AppConfig, LayoutConfig, ThemeMode } from '../shared/types';
+import type { AgentId, AppConfig, LayoutConfig, ThemeMode } from '../shared/types.ts';
 import {
   agentId,
   booleanSetting,

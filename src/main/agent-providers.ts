@@ -3,11 +3,11 @@ import { promisify } from 'util';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { AgentId, AgentInfo, AgentStatus } from '../shared/types';
+import type { AgentId, AgentInfo, AgentStatus } from '../shared/types.ts';
 import {
   resumeCommandFor as buildResumeCommand,
   startCommandFor as buildStartCommand,
-} from '../shared/agent-commands';
+} from '../shared/agent-commands.ts';
 
 const execAsync = promisify(exec);
 

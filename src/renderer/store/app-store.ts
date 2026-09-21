@@ -8,8 +8,25 @@ import type {
   GitStatus,
   LayoutConfig,
   ThemeMode,
-} from '../../shared/types';
+  NewProjectOptions,
+} from '../../shared/types.ts';
+import { DEFAULT_FONT_SIZE, validateFontSize } from '../../shared/typography.ts';
 import { startCommandFor, resumeCommandFor, extraPathFor } from '../../shared/agent-commands.ts';
+import { pickDeletableMissingProjectIds } from './project-cleanup.ts';
+import {
+  cleanupShellStateForTabs,
+  closeTabIds,
+  omitRecordKeys,
+  setTabShellVisibility as setTabShellVisibilityRecord,
+  tabKeysForProject,
+  terminalKeysForClosingTabs,
+} from './tab-state.ts';
+import {
+  agentTerminalKey,
+  makeSessionTabKey,
+  shellTerminalKey,
+  type SessionShellProfile,
+} from '../../shared/session-terminals.ts';
 
 interface PendingLaunch {
   command: string;
@@ -21,18 +38,32 @@ interface Clipboard {
   paths: string[];
 }
 
+export interface SessionLinkRequest {
+  tabId: string;
+  sessionId?: string;
+  renameAfterLink: boolean;
+}
+
 interface AppState {
   projects: Project[];
   adhocProjects: Project[];
   inventoryRefreshing: boolean;
+  inventoryError: string | null;
   selectedProjectId: string | null;
   sessionGuideProjectId: string | null;
   sessionGuideSeq: number;
   openTabs: string[];
   activeTabId: string | null;
+  tabProjectId: Record<string, string>;
+  tabSessionId: Record<string, string | null>;
+  tabSessionBaseline: Record<string, string[]>;
+  sessionLinkRequest: SessionLinkRequest | null;
   pendingInitialCommand: Record<string, PendingLaunch>;
   tabAgent: Record<string, AgentId>;
   tabRespawnNonce: Record<string, number>;
+  tabShellProfile: Record<string, SessionShellProfile>;
+  tabShellOpened: Record<string, boolean>;
+  tabShellVisible: Record<string, boolean>;
   sessions: Record<string, Session[]>;
   showHidden: boolean;
   agents: AgentInfo[];
@@ -45,6 +76,8 @@ interface AppState {
   confirmOnCloseTab: boolean;
   terminalMultilineEnter: boolean;
   terminalCopyPaste: boolean;
+  fontSize: number;
+  fontBold: boolean;
 
   loadProjects: () => Promise<void>;
   loadAgents: () => Promise<void>;
@@ -59,21 +92,27 @@ interface AppState {
     startCommand: string,
     extraPath?: string[],
   ) => Promise<void>;
+  openSessionTab: (projectId: string, session: Session, separate?: boolean) => Promise<void>;
+  requestSessionLink: (request: SessionLinkRequest | null) => void;
+  linkSession: (tabId: string, sessionId: string) => void;
   setActiveTab: (id: string) => void;
   closeTab: (id: string) => void;
+  closeTabs: (ids: string[]) => void;
+  openShellForTab: (projectId: string, profile?: SessionShellProfile) => void;
+  setTabShellVisible: (projectId: string, visible: boolean) => void;
   setShowHidden: (v: boolean) => void;
   toggleAgentGroup: (id: AgentId) => void;
   pinProject: (id: string, pinned: boolean) => Promise<void>;
   hideProject: (id: string, hidden: boolean) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+  deleteMissingProjects: (ids: string[]) => Promise<void>;
   reorderProjects: (agent: AgentId, fromId: string, toId: string) => Promise<void>;
   loadSessions: (projectId: string) => Promise<void>;
   deleteSession: (projectId: string, sessionId: string) => Promise<void>;
-  newSessionFromDialog: (
-    agentId: AgentId,
-    startCommand: string,
-    extraPath?: string[],
-  ) => Promise<void>;
+  renameSession: (projectId: string, sessionId: string, title: string) => Promise<void>;
+  createProject: (options: NewProjectOptions) => Promise<void>;
+  setFontSize: (size: number) => Promise<void>;
+  setFontBold: (bold: boolean) => Promise<void>;
   consumePendingCommand: (projectId: string) => PendingLaunch | undefined;
   findProject: (id: string) => Project | undefined;
   getProjectAgent: (projectId: string) => Promise<AgentId>;
@@ -98,11 +137,6 @@ interface AppState {
   ) => Promise<void>;
 }
 
-function displayNameFor(realPath: string): string {
-  const parts = realPath.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] || realPath;
-}
-
 const emptyStatus = (): Record<AgentId, AgentStatus> => ({
   claude: { available: false, path: null },
   codex: { available: false, path: null },
@@ -124,14 +158,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   projects: [],
   adhocProjects: [],
   inventoryRefreshing: false,
+  inventoryError: null,
   selectedProjectId: null,
   sessionGuideProjectId: null,
   sessionGuideSeq: 0,
   openTabs: [],
   activeTabId: null,
+  tabProjectId: {},
+  tabSessionId: {},
+  tabSessionBaseline: {},
+  sessionLinkRequest: null,
   pendingInitialCommand: {},
   tabAgent: {},
   tabRespawnNonce: {},
+  tabShellProfile: {},
+  tabShellOpened: {},
+  tabShellVisible: {},
   sessions: {},
   showHidden: false,
   agents: [],
@@ -144,6 +186,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   confirmOnCloseTab: true,
   terminalMultilineEnter: true,
   terminalCopyPaste: true,
+  fontSize: DEFAULT_FONT_SIZE,
+  fontBold: false,
 
   async loadProjects() {
     const projects = await window.api.projects.list();
@@ -162,20 +206,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async refreshProjectsAndAgents() {
     if (get().inventoryRefreshing) return;
-    set({ inventoryRefreshing: true });
+    set({ inventoryRefreshing: true, inventoryError: null });
     try {
       await Promise.all([get().loadProjects(), get().loadAgents(), get().checkAgents()]);
 
       const selectedId = get().selectedProjectId;
-      if (!selectedId) return;
-
-      const p = get().findProject(selectedId);
-      if (p && !p.dirName.startsWith('adhoc:')) {
-        await get().loadSessions(selectedId);
+      const projectIds = new Set([
+        ...Object.values(get().tabProjectId),
+        ...(selectedId ? [selectedId] : []),
+      ]);
+      for (const id of projectIds) {
+        const project = get().findProject(id);
+        if (project && !project.dirName.startsWith('adhoc:')) await get().loadSessions(id);
       }
+      const p = selectedId ? get().findProject(selectedId) : undefined;
       if (p?.exists) {
         await get().loadGitStatus(p.realPath);
       }
+    } catch (error) {
+      set({ inventoryError: error instanceof Error ? error.message : String(error) });
     } finally {
       set({ inventoryRefreshing: false });
     }
@@ -213,17 +262,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (loadedSessions.length === 1) {
-      const only = loadedSessions[0];
-      const cmd = resumeCommandFor(only.agent, only.id);
-      if (cmd) {
-        await get().restartTabWithCommand(
-          id,
-          only.agent,
-          cmd,
-          extraPathFor(get().agentStatus[only.agent]?.path),
-        );
-        return;
-      }
+      await get().openSessionTab(id, loadedSessions[0]);
+      return;
     }
 
     if (get().openTabs.includes(id)) {
@@ -240,42 +280,190 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async openTabWithAgent(projectId, agentId, startCommand, extraPath = []) {
+    const tabId = projectId;
+    if (get().openTabs.includes(tabId)) {
+      set({ activeTabId: tabId });
+      return;
+    }
+    const baseline = await window.api.sessions.listForProject(projectId);
     await window.api.config.setLastAgent(projectId, agentId);
     const { openTabs } = get();
+    if (openTabs.includes(tabId)) {
+      set({ activeTabId: tabId });
+      return;
+    }
     const pending: PendingLaunch = { command: startCommand, extraPath };
+    const nextTabShellProfile = get().tabShellProfile[tabId]
+      ? get().tabShellProfile
+      : { ...get().tabShellProfile, [tabId]: 'default' as SessionShellProfile };
     const next: Partial<AppState> = {
-      tabAgent: { ...get().tabAgent, [projectId]: agentId },
-      activeTabId: projectId,
-      pendingInitialCommand: { ...get().pendingInitialCommand, [projectId]: pending },
+      tabProjectId: { ...get().tabProjectId, [tabId]: projectId },
+      tabSessionId: { ...get().tabSessionId, [tabId]: null },
+      tabSessionBaseline:
+        agentId === 'aider'
+          ? get().tabSessionBaseline
+          : { ...get().tabSessionBaseline, [tabId]: baseline.map((s) => s.id) },
+      tabAgent: { ...get().tabAgent, [tabId]: agentId },
+      activeTabId: tabId,
+      tabShellProfile: nextTabShellProfile,
+      pendingInitialCommand: { ...get().pendingInitialCommand, [tabId]: pending },
     };
-    if (!openTabs.includes(projectId)) {
-      next.openTabs = [...openTabs, projectId];
+    if (!openTabs.includes(tabId)) {
+      next.openTabs = [...openTabs, tabId];
     }
     set(next);
   },
 
-  closeTab(id) {
-    const { openTabs, activeTabId, adhocProjects, tabAgent } = get();
-    const next = openTabs.filter((t) => t !== id);
-    let nextActive = activeTabId;
-    if (activeTabId === id) {
-      const idx = openTabs.indexOf(id);
-      nextActive = next[idx] ?? next[idx - 1] ?? null;
+  async openSessionTab(projectId, session, separate = false) {
+    const command = resumeCommandFor(session.agent, session.id);
+    if (!command) return;
+
+    const tabId = makeSessionTabKey(projectId, session.id);
+    const existingTab = get().openTabs.find(
+      (id) => get().tabAgent[id] === session.agent && get().tabSessionId[id] === session.id,
+    );
+    if (existingTab) {
+      set({ activeTabId: existingTab });
+      return;
     }
-    window.api.pty.kill(id);
-    const nextTabAgent = { ...tabAgent };
-    const pendingInitialCommand = { ...get().pendingInitialCommand };
-    const tabRespawnNonce = { ...get().tabRespawnNonce };
-    delete nextTabAgent[id];
-    delete pendingInitialCommand[id];
-    delete tabRespawnNonce[id];
+    const unboundTab = get().openTabs.find(
+      (id) =>
+        get().tabProjectId[id] === projectId &&
+        get().tabAgent[id] === session.agent &&
+        !get().tabSessionId[id] &&
+        get().tabSessionBaseline[id] &&
+        !get().tabSessionBaseline[id].includes(session.id),
+    );
+    if (unboundTab && !separate) {
+      set({
+        sessionLinkRequest: { tabId: unboundTab, sessionId: session.id, renameAfterLink: false },
+      });
+      return;
+    }
+    if (get().openTabs.includes(tabId)) {
+      set({ activeTabId: tabId });
+      return;
+    }
+
+    await window.api.config.setLastAgent(projectId, session.agent);
+    const { openTabs, tabShellProfile } = get();
+    const openedWhileWaiting = openTabs.find(
+      (id) => get().tabAgent[id] === session.agent && get().tabSessionId[id] === session.id,
+    );
+    if (openedWhileWaiting) {
+      set({ activeTabId: openedWhileWaiting });
+      return;
+    }
+    const pending: PendingLaunch = {
+      command,
+      extraPath: extraPathFor(get().agentStatus[session.agent]?.path),
+    };
+    const nextTabShellProfile = tabShellProfile[tabId]
+      ? tabShellProfile
+      : { ...tabShellProfile, [tabId]: 'default' as SessionShellProfile };
+
     set({
-      openTabs: next,
-      activeTabId: nextActive,
-      adhocProjects: adhocProjects.filter((p) => p.id !== id),
-      tabAgent: nextTabAgent,
+      openTabs: [...openTabs, tabId],
+      activeTabId: tabId,
+      tabProjectId: { ...get().tabProjectId, [tabId]: projectId },
+      tabSessionId: { ...get().tabSessionId, [tabId]: session.id },
+      tabAgent: { ...get().tabAgent, [tabId]: session.agent },
+      tabShellProfile: nextTabShellProfile,
+      pendingInitialCommand: { ...get().pendingInitialCommand, [tabId]: pending },
+    });
+  },
+
+  closeTab(id) {
+    get().closeTabs([id]);
+  },
+
+  requestSessionLink(request) {
+    set({ sessionLinkRequest: request });
+  },
+
+  linkSession(tabId, sessionId) {
+    const projectId = get().tabProjectId[tabId];
+    const session = get().sessions[projectId]?.find((item) => item.id === sessionId);
+    if (!get().openTabs.includes(tabId) || !session || session.agent !== get().tabAgent[tabId]) {
+      throw new Error('The selected session is no longer available for this tab.');
+    }
+    const duplicate = get().openTabs.some(
+      (id) =>
+        id !== tabId &&
+        get().tabAgent[id] === session.agent &&
+        get().tabSessionId[id] === sessionId,
+    );
+    if (duplicate) throw new Error('This session is already linked to another tab.');
+    set({
+      tabSessionId: { ...get().tabSessionId, [tabId]: sessionId },
+      tabSessionBaseline: omitRecordKeys(get().tabSessionBaseline, [tabId]),
+      activeTabId: tabId,
+      sessionLinkRequest: null,
+    });
+  },
+
+  closeTabs(ids) {
+    const uniqueIds = [...new Set(ids)];
+    const {
+      openTabs,
+      activeTabId,
+      tabProjectId,
+      tabSessionId,
+      adhocProjects,
+      tabAgent,
       pendingInitialCommand,
       tabRespawnNonce,
+      tabShellProfile,
+      tabShellOpened,
+      tabShellVisible,
+    } = get();
+    const nextTabs = closeTabIds(openTabs, activeTabId, uniqueIds);
+    const terminalKeys = terminalKeysForClosingTabs(
+      uniqueIds.filter((id) => openTabs.includes(id)),
+      tabShellOpened,
+      tabShellProfile,
+    );
+    for (const terminalKey of terminalKeys) {
+      void window.api.pty.kill(terminalKey);
+    }
+    set({
+      ...nextTabs,
+      tabProjectId: omitRecordKeys(tabProjectId, uniqueIds),
+      tabSessionId: omitRecordKeys(tabSessionId, uniqueIds),
+      tabSessionBaseline: omitRecordKeys(get().tabSessionBaseline, uniqueIds),
+      sessionLinkRequest: uniqueIds.includes(get().sessionLinkRequest?.tabId ?? '')
+        ? null
+        : get().sessionLinkRequest,
+      adhocProjects: adhocProjects.filter((p) => !uniqueIds.includes(p.id)),
+      tabAgent: omitRecordKeys(tabAgent, uniqueIds),
+      pendingInitialCommand: omitRecordKeys(pendingInitialCommand, uniqueIds),
+      tabRespawnNonce: omitRecordKeys(tabRespawnNonce, uniqueIds),
+      tabShellProfile: cleanupShellStateForTabs(tabShellProfile, uniqueIds),
+      tabShellOpened: cleanupShellStateForTabs(tabShellOpened, uniqueIds),
+      tabShellVisible: cleanupShellStateForTabs(tabShellVisible, uniqueIds),
+    });
+  },
+
+  openShellForTab(projectId, profile) {
+    const { openTabs, tabShellOpened, tabShellProfile, tabShellVisible } = get();
+    if (!openTabs.includes(projectId)) return;
+    const currentProfile = tabShellProfile[projectId] ?? 'default';
+    const nextProfile = profile ?? currentProfile;
+    if (tabShellOpened[projectId] && currentProfile !== nextProfile) {
+      void window.api.pty.kill(shellTerminalKey(projectId, currentProfile));
+    }
+    set({
+      activeTabId: projectId,
+      tabShellProfile: { ...tabShellProfile, [projectId]: nextProfile },
+      tabShellOpened: { ...tabShellOpened, [projectId]: true },
+      tabShellVisible: setTabShellVisibilityRecord(openTabs, tabShellVisible, projectId, true),
+    });
+  },
+
+  setTabShellVisible(projectId, visible) {
+    const { openTabs, tabShellVisible } = get();
+    set({
+      tabShellVisible: setTabShellVisibilityRecord(openTabs, tabShellVisible, projectId, visible),
     });
   },
 
@@ -303,27 +491,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async deleteProject(id) {
-    const { openTabs, activeTabId, tabAgent, sessions } = get();
     await window.api.projects.delete(id);
-    if (openTabs.includes(id)) window.api.pty.kill(id);
-    const nextTabAgent = { ...tabAgent };
-    delete nextTabAgent[id];
+    const relatedTabs = tabKeysForProject(get().tabProjectId, id);
+    if (relatedTabs.length > 0) get().closeTabs(relatedTabs);
+    const { sessions } = get();
     const nextSessions = { ...sessions };
     delete nextSessions[id];
-    const nextOpenTabs = openTabs.filter((t) => t !== id);
-    let nextActive = activeTabId;
-    if (activeTabId === id) {
-      const idx = openTabs.indexOf(id);
-      nextActive = nextOpenTabs[idx] ?? nextOpenTabs[idx - 1] ?? null;
-    }
     set({
-      openTabs: nextOpenTabs,
-      activeTabId: nextActive,
-      tabAgent: nextTabAgent,
       sessions: nextSessions,
       selectedProjectId: get().selectedProjectId === id ? null : get().selectedProjectId,
     });
     await get().loadProjects();
+  },
+
+  async deleteMissingProjects(ids) {
+    if (ids.length === 0) {
+      set({ inventoryError: 'No projects selected' });
+      throw new Error('No projects selected');
+    }
+    try {
+      await get().loadProjects();
+      const targetIds = pickDeletableMissingProjectIds(get().projects, ids);
+      if (targetIds.length === 0) {
+        const error = new Error('No deleted projects are currently available to delete');
+        set({ inventoryError: error.message });
+        throw error;
+      }
+
+      await window.api.projects.deleteMissing(targetIds);
+      const relatedTabs = [
+        ...new Set(
+          targetIds.flatMap((projectId) => tabKeysForProject(get().tabProjectId, projectId)),
+        ),
+      ];
+      if (relatedTabs.length > 0) get().closeTabs(relatedTabs);
+      const nextSessions = { ...get().sessions };
+      for (const id of targetIds) delete nextSessions[id];
+      set({
+        sessions: nextSessions,
+        selectedProjectId: targetIds.includes(get().selectedProjectId ?? '')
+          ? null
+          : get().selectedProjectId,
+        inventoryError: null,
+      });
+    } catch (error) {
+      set({ inventoryError: error instanceof Error ? error.message : String(error) });
+      throw error;
+    } finally {
+      try {
+        await get().loadProjects();
+      } catch (error) {
+        set({ inventoryError: error instanceof Error ? error.message : String(error) });
+      }
+    }
   },
 
   async reorderProjects(agent, fromId, toId) {
@@ -351,30 +571,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().loadSessions(projectId);
   },
 
-  async newSessionFromDialog(agentId, startCommand, extraPath = []) {
-    const dir = await window.api.dialog.pickDirectory();
-    if (!dir) return;
+  async renameSession(projectId, sessionId, title) {
+    const name = await window.api.sessions.rename(projectId, sessionId, title);
+    const agent = get().sessions[projectId]?.find((s) => s.id === sessionId)?.agent;
+    set((state) => ({
+      sessions: Object.fromEntries(
+        Object.entries(state.sessions).map(([id, sessions]) => [
+          id,
+          sessions.map((s) =>
+            s.id === sessionId && (s.agent === agent || id === projectId)
+              ? { ...s, title: name }
+              : s,
+          ),
+        ]),
+      ),
+    }));
+  },
 
-    const existing = get().projects.find((p) => p.realPath.toLowerCase() === dir.toLowerCase());
-    const id = existing ? existing.id : `adhoc:${dir}`;
-
-    if (!existing && !get().adhocProjects.some((p) => p.id === id)) {
-      const adhoc: Project = {
-        id,
-        agent: agentId,
-        dirName: id,
-        realPath: dir,
-        displayName: displayNameFor(dir),
-        exists: true,
-        pinned: false,
-        hidden: false,
-        sessionCount: 0,
-        lastActivity: null,
-      };
-      set({ adhocProjects: [...get().adhocProjects, adhoc] });
-    }
-
-    await get().openTabWithAgent(id, agentId, startCommand, extraPath);
+  async createProject(options) {
+    const project = await window.api.projects.create(options);
+    set({
+      projects: [...get().projects.filter((p) => p.id !== project.id), project],
+      selectedProjectId: project.id,
+    });
+    await get().openTabWithAgent(
+      project.id,
+      options.agent,
+      startCommandFor(options.agent),
+      extraPathFor(get().agentStatus[options.agent]?.path),
+    );
   },
 
   consumePendingCommand(projectId) {
@@ -454,12 +679,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async loadSettings() {
-    const [confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste] = await Promise.all([
-      window.api.config.getConfirmOnCloseTab(),
-      window.api.config.getTerminalMultilineEnter(),
-      window.api.config.getTerminalCopyPaste(),
-    ]);
-    set({ confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste });
+    const [confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste, fontSize, fontBold] =
+      await Promise.all([
+        window.api.config.getConfirmOnCloseTab(),
+        window.api.config.getTerminalMultilineEnter(),
+        window.api.config.getTerminalCopyPaste(),
+        window.api.config.getFontSize(),
+        window.api.config.getFontBold(),
+      ]);
+    document.documentElement.style.setProperty('--app-font-size', `${fontSize}px`);
+    document.documentElement.style.setProperty('--app-font-weight', fontBold ? '700' : '400');
+    set({ confirmOnCloseTab, terminalMultilineEnter, terminalCopyPaste, fontSize, fontBold });
+  },
+
+  async setFontSize(size) {
+    validateFontSize(size);
+    await window.api.config.setFontSize(size);
+    document.documentElement.style.setProperty('--app-font-size', `${size}px`);
+    set({ fontSize: size });
+  },
+
+  async setFontBold(bold) {
+    if (typeof bold !== 'boolean') throw new Error('Font bold must be a boolean.');
+    await window.api.config.setFontBold(bold);
+    document.documentElement.style.setProperty('--app-font-weight', bold ? '700' : '400');
+    set({ fontBold: bold });
   },
 
   async setConfirmOnCloseTab(v) {
@@ -497,8 +741,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Tab already open: kill the running CLI and re-spawn via TerminalPane's
       // remount. The TerminalPane is keyed on projectId, so to force a remount
       // we toggle a tabRespawnNonce.
-      await window.api.pty.kill(projectId);
+      await window.api.pty.kill(agentTerminalKey(projectId));
       set({
+        tabProjectId: { ...get().tabProjectId, [projectId]: projectId },
+        tabSessionId: { ...get().tabSessionId, [projectId]: null },
         tabAgent: { ...get().tabAgent, [projectId]: agentId },
         activeTabId: projectId,
         pendingInitialCommand: { ...get().pendingInitialCommand, [projectId]: pending },
@@ -509,6 +755,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } else {
       set({
+        tabProjectId: { ...get().tabProjectId, [projectId]: projectId },
+        tabSessionId: { ...get().tabSessionId, [projectId]: null },
         tabAgent: { ...get().tabAgent, [projectId]: agentId },
         activeTabId: projectId,
         pendingInitialCommand: { ...get().pendingInitialCommand, [projectId]: pending },

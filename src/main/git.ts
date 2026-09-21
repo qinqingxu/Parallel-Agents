@@ -5,7 +5,7 @@ import { existsSync, readFileSync, statSync, watch as watchSync } from 'fs';
 import type { FSWatcher } from 'fs';
 import { join, resolve } from 'path';
 import type { BrowserWindow } from 'electron';
-import type { GitStatus, GitChange, GitFileState } from '../shared/types';
+import type { GitStatus, GitChange, GitFileState } from '../shared/types.ts';
 import { sendToWindow } from './window-messenger.ts';
 
 const execFileAsync = promisify(execFile);

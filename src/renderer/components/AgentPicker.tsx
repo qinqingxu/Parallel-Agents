@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AgentId, AgentInfo, AgentStatus } from '../../shared/types';
-import { agentIconUrl } from '../icons/agentIcons';
+import { AgentIcon } from './AgentIcon';
 
 interface Props {
   agents: AgentInfo[];
@@ -54,12 +54,7 @@ export function AgentPicker({ agents, status, onPick, onClose, anchorX, anchorY,
                 available ? a.displayName : `${a.displayName} not installed — ${a.installHint}`
               }
             >
-              <img
-                src={agentIconUrl(a.id)}
-                className="agent-picker-icon"
-                alt=""
-                draggable={false}
-              />
+              <AgentIcon agent={a.id} className="agent-picker-icon" size={22} />
               <div className="agent-picker-text">
                 <div className="agent-picker-name">{a.displayName}</div>
                 <div className="agent-picker-sub">

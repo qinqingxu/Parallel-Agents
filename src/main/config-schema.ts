@@ -1,4 +1,4 @@
-import type { AgentId, AppConfig, LayoutConfig, PaneId, ThemeMode } from '../shared/types';
+import type { AgentId, AppConfig, LayoutConfig, PaneId, ThemeMode } from '../shared/types.ts';
 
 const AGENTS: readonly AgentId[] = ['claude', 'codex', 'gemini', 'aider', 'copilot'];
 const PANES: readonly PaneId[] = ['sidebar', 'middle', 'right'];

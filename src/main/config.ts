@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { join } from 'node:path';
-import { createConfigStore } from './config-store';
+import { createConfigStore } from './config-store.ts';
 
 const store = createConfigStore(join(app.getPath('home'), '.claude', 'parallel-agents.json'));
 

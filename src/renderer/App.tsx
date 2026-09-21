@@ -10,8 +10,10 @@ import { AboutDialog } from './components/AboutDialog';
 import { AgentsBanner } from './components/AgentsBanner';
 import { ClaudeIcon } from './components/ClaudeIcon';
 import type { PaneId } from '../shared/types';
-
-const INVENTORY_AUTO_REFRESH_MS = 60_000;
+import { INVENTORY_AUTO_REFRESH_MS } from '../shared/constants';
+import { sessionTabLabelSuffix } from '../shared/session-terminals';
+import { handleSessionTabShortcut } from './session-shortcuts';
+import { UpdateReadyNotice } from './components/UpdateReadyNotice';
 
 function RightColumn() {
   return (
@@ -36,9 +38,31 @@ export default function App() {
   const loadTheme = useAppStore((s) => s.loadTheme);
   const loadSettings = useAppStore((s) => s.loadSettings);
   const openTabs = useAppStore((s) => s.openTabs);
+  const tabProjectId = useAppStore((s) => s.tabProjectId);
+  const tabSessionId = useAppStore((s) => s.tabSessionId);
+  const awaitingSession = useAppStore((s) => Object.keys(s.tabSessionBaseline).length > 0);
+  const sessions = useAppStore((s) => s.sessions);
   const findProject = useAppStore((s) => s.findProject);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const state = useAppStore.getState();
+      const modalOpen = !!document.querySelector(
+        'dialog[open], .modal-backdrop, .modal-overlay, .diff-backdrop',
+      );
+      handleSessionTabShortcut(
+        event,
+        state.openTabs,
+        state.activeTabId,
+        state.setActiveTab,
+        modalOpen,
+      );
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   useEffect(() => {
     void refreshProjectsAndAgents();
@@ -57,14 +81,32 @@ export default function App() {
   }, [refreshProjectsAndAgents]);
 
   useEffect(() => {
+    if (!awaitingSession) return;
+    const timer = window.setInterval(() => void refreshProjectsAndAgents(), 5000);
+    const timeout = window.setTimeout(() => window.clearInterval(timer), 60_000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(timeout);
+    };
+  }, [awaitingSession, refreshProjectsAndAgents]);
+
+  useEffect(() => {
     const off = window.api.window.onFullscreenChange((on) => setFullscreen(on));
     return off;
   }, []);
 
   useEffect(() => {
     (window as unknown as { __getOpenTabs: () => string[] }).__getOpenTabs = () =>
-      openTabs.map((id) => findProject(id)?.displayName ?? id);
-  }, [openTabs, findProject]);
+      openTabs.map((tabId) => {
+        const projectId = tabProjectId[tabId] ?? tabId;
+        const project = findProject(projectId);
+        if (!project) return tabId;
+        const sessionId = tabSessionId[tabId] ?? null;
+        if (!sessionId) return project.displayName;
+        const session = (sessions[projectId] ?? []).find((item) => item.id === sessionId);
+        return sessionTabLabelSuffix(session?.title ?? '', sessionId);
+      });
+  }, [openTabs, tabProjectId, tabSessionId, sessions, findProject]);
 
   const panes = useMemo(
     () => ({
@@ -120,6 +162,7 @@ export default function App() {
         </PanelGroup>
       </div>
       <StatusBar />
+      <UpdateReadyNotice />
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     </div>
   );

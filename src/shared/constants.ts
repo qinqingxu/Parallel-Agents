@@ -1,0 +1,1 @@
+export const INVENTORY_AUTO_REFRESH_MS = 10 * 60 * 1000;

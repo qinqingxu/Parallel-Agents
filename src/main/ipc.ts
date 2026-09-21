@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
-import { listProjects, deleteProject } from './projects';
-import { listSessionsForProject, deleteSession } from './sessions';
+import { listProjects, deleteProject, deleteMissingProjects, createProject } from './projects.ts';
+import { listSessionsForProject, deleteSession, renameSession } from './sessions.ts';
 import {
   readDir,
   createFile,
@@ -11,7 +11,7 @@ import {
   trashPath,
   revealInExplorer,
   openWithDefault,
-} from './fs-explorer';
+} from './fs-explorer.ts';
 import {
   setProjectPinned,
   setProjectHidden,
@@ -28,17 +28,41 @@ import {
   setTerminalMultilineEnter,
   getTerminalCopyPaste,
   setTerminalCopyPaste,
-} from './config';
-import { ptyManager } from './pty-manager';
-import { checkAllAgents, listAgents } from './agent-providers';
-import * as git from './git';
-import type { AgentId, LayoutConfig, ThemeMode } from '../shared/types';
+} from './config.ts';
+import { ptyManager } from './pty-manager.ts';
+import { checkAllAgents, listAgents } from './agent-providers.ts';
+import * as git from './git.ts';
+import type {
+  AgentId,
+  LayoutConfig,
+  ThemeMode,
+  NewProjectOptions,
+  PtySpawnOptions,
+} from '../shared/types.ts';
+import { preferences } from './preferences-store.ts';
+import { discoverShells } from './shell-profiles.ts';
+import type { UpdateController } from './update-controller.ts';
 
-export function registerIpc(win: BrowserWindow) {
+export function registerIpc(win: BrowserWindow, updates: UpdateController) {
   ptyManager.attachWindow(win);
   git.attachWindow(win);
 
+  ipcMain.handle('updates:getStatus', () => updates.getStatus());
+  ipcMain.handle('updates:check', () => updates.check());
+  ipcMain.handle('updates:install', () => updates.install());
+  const unsubscribeUpdates = updates.subscribe((status) => {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send('updates:status', status);
+    }
+  });
+  win.once('closed', () => {
+    unsubscribeUpdates();
+    for (const channel of ['updates:getStatus', 'updates:check', 'updates:install'])
+      ipcMain.removeHandler(channel);
+  });
+
   ipcMain.handle('projects:list', () => listProjects());
+  ipcMain.handle('projects:create', (_e, options: NewProjectOptions) => createProject(options));
 
   ipcMain.handle('projects:pin', (_e, id: string, pinned: boolean) => setProjectPinned(id, pinned));
 
@@ -47,6 +71,7 @@ export function registerIpc(win: BrowserWindow) {
   );
 
   ipcMain.handle('projects:delete', (_e, id: string) => deleteProject(id));
+  ipcMain.handle('projects:deleteMissing', (_e, ids: string[]) => deleteMissingProjects(ids));
   ipcMain.handle('projects:setOrder', (_e, agent: AgentId, ids: string[]) =>
     setProjectOrder(agent, ids),
   );
@@ -56,6 +81,9 @@ export function registerIpc(win: BrowserWindow) {
   );
   ipcMain.handle('sessions:delete', (_e, projectId: string, sessionId: string) =>
     deleteSession(projectId, sessionId),
+  );
+  ipcMain.handle('sessions:rename', (_e, projectId: string, sessionId: string, title: string) =>
+    renameSession(projectId, sessionId, title),
   );
 
   ipcMain.handle('fs:readDir', (_e, path: string) => readDir(path));
@@ -70,29 +98,17 @@ export function registerIpc(win: BrowserWindow) {
   ipcMain.handle('fs:reveal', (_e, path: string) => revealInExplorer(path));
   ipcMain.handle('fs:openDefault', (_e, path: string) => openWithDefault(path));
 
-  ipcMain.handle(
-    'pty:spawn',
-    (
-      _e,
-      opts: {
-        projectId: string;
-        cwd: string;
-        cols: number;
-        rows: number;
-        initialCommand?: string;
-        extraPath?: string[];
-      },
-    ) => {
-      ptyManager.spawn(
-        opts.projectId,
-        opts.cwd,
-        opts.cols,
-        opts.rows,
-        opts.initialCommand,
-        opts.extraPath,
-      );
-    },
-  );
+  ipcMain.handle('pty:spawn', (_e, opts: PtySpawnOptions) => {
+    return ptyManager.spawn(
+      opts.projectId,
+      opts.cwd,
+      opts.cols,
+      opts.rows,
+      opts.initialCommand,
+      opts.extraPath,
+      opts.shellProfile,
+    );
+  });
   ipcMain.handle('pty:write', (_e, projectId: string, data: string) => {
     ptyManager.write(projectId, data);
   });
@@ -131,6 +147,11 @@ export function registerIpc(win: BrowserWindow) {
   );
   ipcMain.handle('config:getTerminalCopyPaste', () => getTerminalCopyPaste());
   ipcMain.handle('config:setTerminalCopyPaste', (_e, v: boolean) => setTerminalCopyPaste(v));
+  ipcMain.handle('config:getFontSize', async () => (await preferences.read()).fontSize);
+  ipcMain.handle('config:setFontSize', (_e, size: number) => preferences.setFontSize(size));
+  ipcMain.handle('config:getFontBold', async () => (await preferences.read()).fontBold);
+  ipcMain.handle('config:setFontBold', (_e, bold: boolean) => preferences.setFontBold(bold));
+  ipcMain.handle('shell:list', () => discoverShells());
 
   ipcMain.handle('git:status', (_e, repoPath: string) => git.getStatus(repoPath));
   ipcMain.handle('git:diff', (_e, repoPath: string, filePath: string, staged: boolean) =>

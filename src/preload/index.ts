@@ -1,15 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Api } from '../shared/types';
+import type { Api, UpdateStatus } from '../shared/types';
 
 const api: Api = {
+  updates: {
+    getStatus: () => ipcRenderer.invoke('updates:getStatus'),
+    check: () => ipcRenderer.invoke('updates:check'),
+    install: () => ipcRenderer.invoke('updates:install'),
+    onStatus: (cb) => {
+      const fn = (_: unknown, status: UpdateStatus) => cb(status);
+      ipcRenderer.on('updates:status', fn);
+      return () => {
+        ipcRenderer.off('updates:status', fn);
+      };
+    },
+  },
   projects: {
+    create: (options) => ipcRenderer.invoke('projects:create', options),
     list: () => ipcRenderer.invoke('projects:list'),
     pin: (id, pinned) => ipcRenderer.invoke('projects:pin', id, pinned),
     hide: (id, hidden) => ipcRenderer.invoke('projects:hide', id, hidden),
     delete: (id) => ipcRenderer.invoke('projects:delete', id),
+    deleteMissing: (ids) => ipcRenderer.invoke('projects:deleteMissing', ids),
     setOrder: (agent, ids) => ipcRenderer.invoke('projects:setOrder', agent, ids),
   },
   sessions: {
+    rename: (projectId, sessionId, title) =>
+      ipcRenderer.invoke('sessions:rename', projectId, sessionId, title),
     listForProject: (projectId) => ipcRenderer.invoke('sessions:listForProject', projectId),
     delete: (projectId, sessionId) => ipcRenderer.invoke('sessions:delete', projectId, sessionId),
   },
@@ -48,6 +64,10 @@ const api: Api = {
     checkAll: () => ipcRenderer.invoke('agents:checkAll'),
   },
   config: {
+    getFontSize: () => ipcRenderer.invoke('config:getFontSize'),
+    setFontSize: (size) => ipcRenderer.invoke('config:setFontSize', size),
+    getFontBold: () => ipcRenderer.invoke('config:getFontBold'),
+    setFontBold: (bold) => ipcRenderer.invoke('config:setFontBold', bold),
     getLastAgent: (projectId) => ipcRenderer.invoke('config:getLastAgent', projectId),
     setLastAgent: (projectId, agentId) =>
       ipcRenderer.invoke('config:setLastAgent', projectId, agentId),
@@ -78,6 +98,7 @@ const api: Api = {
     },
   },
   shell: {
+    list: () => ipcRenderer.invoke('shell:list'),
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   },
   window: {

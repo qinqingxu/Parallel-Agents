@@ -1,7 +1,7 @@
 import { readdir, stat, writeFile, rename as fsRename, cp, rm, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { shell } from 'electron';
-import type { FsNode } from '../shared/types';
+import type { FsNode } from '../shared/types.ts';
 
 const IGNORE = new Set(['.git', 'node_modules', '.next', '.turbo', 'dist', 'out', '.cache']);
 

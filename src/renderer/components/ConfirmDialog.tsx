@@ -6,6 +6,8 @@ interface Props {
   confirmText: string;
   typeToConfirm: string;
   destructive?: boolean;
+  warning?: string;
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
@@ -16,6 +18,8 @@ export function ConfirmDialog({
   confirmText,
   typeToConfirm,
   destructive,
+  warning,
+  confirmDisabled,
   onConfirm,
   onCancel,
 }: Props) {
@@ -32,7 +36,7 @@ export function ConfirmDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
 
-  const canConfirm = input === typeToConfirm && armed;
+  const canConfirm = input === typeToConfirm && armed && !confirmDisabled;
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
@@ -40,7 +44,13 @@ export function ConfirmDialog({
         <div className="modal-title">{title}</div>
         <div className="modal-body">
           <div>{message}</div>
-          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-dim)' }}>
+          <div
+            style={{
+              marginTop: 12,
+              fontSize: 'calc(var(--app-font-size) * 0.923077)',
+              color: 'var(--text-dim)',
+            }}
+          >
             Type <code>{typeToConfirm}</code> to enable the {confirmText} button:
           </div>
           <input
@@ -54,6 +64,11 @@ export function ConfirmDialog({
             <input type="checkbox" checked={armed} onChange={(e) => setArmed(e.target.checked)} />
             <span>I understand this cannot be undone.</span>
           </label>
+          {warning && (
+            <div className="modal-warn" role="alert">
+              {warning}
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onCancel}>
@@ -62,7 +77,9 @@ export function ConfirmDialog({
           <button
             className={destructive ? 'btn-danger' : 'btn-primary'}
             disabled={!canConfirm}
-            onClick={() => canConfirm && onConfirm()}
+            onClick={() => {
+              if (canConfirm) void onConfirm();
+            }}
           >
             {confirmText}
           </button>

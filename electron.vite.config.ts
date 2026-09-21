@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve, join } from 'path';
 import { createReadStream, statSync, copyFileSync, mkdirSync, readdirSync } from 'fs';
 import type { Plugin } from 'vite';
+import { getBuildInfo } from './scripts/build-info.mjs';
 
 const ICONS_DIR = resolve(__dirname, 'node_modules/material-icon-theme/icons');
 
@@ -60,6 +61,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    define: { __APP_BUILD_INFO__: JSON.stringify(getBuildInfo(__dirname)) },
     plugins: [react(), materialIconsPlugin()],
     build: {
       minify: 'esbuild',

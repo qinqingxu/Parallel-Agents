@@ -9,6 +9,7 @@ function setup(t) {
   globalThis.window = {
     api: {
       config: { setLastAgent: async () => {} },
+      sessions: { listForProject: async () => [] },
       pty: {
         kill: async (id) => {
           killed.push(id);
@@ -45,7 +46,7 @@ test('closing a not-yet-mounted tab cancels its pending launch', (t) => {
   assert.equal(state.pendingInitialCommand.closed, undefined);
   assert.equal(state.tabRespawnNonce.closed, undefined);
   assert.equal(state.pendingInitialCommand.remaining.command, 'remaining-command');
-  assert.deepEqual(killed, ['closed']);
+  assert.deepEqual(killed, ['closed::agent']);
 });
 
 test('concurrent tab launches retain both tabs after asynchronous configuration writes', async (t) => {

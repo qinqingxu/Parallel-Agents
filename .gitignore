@@ -9,6 +9,7 @@ release/
 *.tsbuildinfo
 coverage/
 reports/
+/electron.vite.config.[0-9]*.mjs
 
 # Logs
 *.log

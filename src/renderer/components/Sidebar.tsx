@@ -4,7 +4,7 @@ import { useAppStore } from '../store/app-store';
 import { ProjectList } from './ProjectList';
 import { SessionList } from './SessionList';
 import { AgentPicker } from './AgentPicker';
-import { startCommandFor, extraPathFor } from '../icons/agentIcons';
+import { NewProjectDialog } from './NewProjectDialog';
 import type { AgentId } from '../../shared/types';
 
 interface Props {
@@ -12,9 +12,6 @@ interface Props {
 }
 
 export function Sidebar({ onAbout }: Props) {
-  const newSessionFromDialog = useAppStore((s) => s.newSessionFromDialog);
-  const refreshProjectsAndAgents = useAppStore((s) => s.refreshProjectsAndAgents);
-  const inventoryRefreshing = useAppStore((s) => s.inventoryRefreshing);
   const agents = useAppStore((s) => s.agents);
   const status = useAppStore((s) => s.agentStatus);
   const selectedProjectId = useAppStore((s) => s.selectedProjectId);
@@ -22,15 +19,16 @@ export function Sidebar({ onAbout }: Props) {
   const sessionGuideSeq = useAppStore((s) => s.sessionGuideSeq);
   const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
   const [sessionsFlashing, setSessionsFlashing] = useState(false);
+  const [newProjectAgent, setNewProjectAgent] = useState<AgentId | null>(null);
 
   function handleNew(e: React.MouseEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setPicker({ x: rect.right + 4, y: rect.top });
   }
 
-  async function onPick(id: AgentId) {
+  function onPick(id: AgentId) {
     setPicker(null);
-    await newSessionFromDialog(id, startCommandFor(id), extraPathFor(status[id]?.path));
+    setNewProjectAgent(id);
   }
 
   useEffect(() => {
@@ -57,16 +55,6 @@ export function Sidebar({ onAbout }: Props) {
               <div className="sidebar-title section-projects">
                 <span className="section-glyph">▣</span>
                 <span>Projects</span>
-              </div>
-              <div className="sidebar-actions">
-                <button
-                  className="btn-secondary sidebar-refresh-btn"
-                  disabled={inventoryRefreshing}
-                  title="Refresh all agents and project status"
-                  onClick={() => void refreshProjectsAndAgents()}
-                >
-                  {inventoryRefreshing ? '↻ Refreshing…' : '↻ Refresh Projects & Agents'}
-                </button>
               </div>
               <ProjectList />
             </div>
@@ -99,6 +87,9 @@ export function Sidebar({ onAbout }: Props) {
           anchorY={picker.y}
           title="Pick an agent CLI"
         />
+      )}
+      {newProjectAgent && (
+        <NewProjectDialog agent={newProjectAgent} onClose={() => setNewProjectAgent(null)} />
       )}
     </div>
   );
