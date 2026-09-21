@@ -20,7 +20,6 @@ export function validationEnvironment(source = process.env) {
     'TMP',
     'LANG',
     'LC_ALL',
-    'PARALLEL_AGENTS_MAINTENANCE_LOOP',
   ]);
   const env = Object.fromEntries(
     Object.entries(source).filter(
@@ -192,6 +191,9 @@ export function runOwnedProcess(
 export async function runNpmCheck(root, limits) {
   const cli = await resolveNpmCli();
   const env = validationEnvironment();
+  if (root.includes('parallel-agents-maintenance-loop-')) {
+    env.PARALLEL_AGENTS_MAINTENANCE_LOOP = '1';
+  }
   // npm run needs no credentials, user npmrc, cache logs, network install, or publication command.
   env.npm_config_userconfig = join(root, 'reports', 'maintenance', '.unused-user-npmrc');
   env.npm_config_globalconfig = join(root, 'reports', 'maintenance', '.unused-global-npmrc');
