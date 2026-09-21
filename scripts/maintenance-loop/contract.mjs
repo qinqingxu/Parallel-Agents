@@ -91,6 +91,7 @@ export function isolatedEnvironment(home, source = process.env) {
     npm_config_globalconfig: join(home, '.global-npmrc'),
     npm_config_cache: join(home, '.npm'),
     npm_config_offline: 'true',
+    PARALLEL_AGENTS_MAINTENANCE_LOOP: '1',
   };
 }
 
